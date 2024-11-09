@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
 import { MdOutlineMail } from 'react-icons/md'
 import { RiLockPasswordLine } from 'react-icons/ri'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import appLogo from '../assets/app-icon.jpg'
 import googleLogo from '../assets/google.png'
+import { toast, ToastContainer } from 'react-toastify'
+import { login, LoginRequest, User } from '@renderer/axios/Request'
 
 const LogIn = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const navigate = useNavigate()
-  const handleSignup = () => {}
+
   const handleForwardSignup = () => {
     navigate('/signup', { replace: false })
   }
@@ -19,19 +21,32 @@ const LogIn = () => {
     const scope: string = import.meta.env.VITE_GOOGLE_SCOPE
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`
   }
-  const location = useLocation()
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.search)
-    console.log(searchParams)
-    const code = searchParams.get('code')
+    const user = localStorage.getItem('user')
+    if(user) navigate('/')
+  }, [])
 
-    if (code) {
-      console.log('Authorization code:', code)
+  const handleLogin =async () => {
+    if (email && password) {
+      const loginRequest : LoginRequest = {
+        email: email,
+        password: password,
+      }
+      try{
+        const result : User = await login(loginRequest)
+        localStorage.setItem('user', JSON.stringify(result))
+        navigate('/')
+
+      }catch(err: any){
+        toast.error(err.response.data)
+      }
+
     } else {
-      console.log('No code found in URL')
+      toast.error("Please fill the required fields")
     }
-  }, [location])
+  }
+
   return (
     <div className={`flex w-full justify-center rounded  min-h-screen bg-bg_default`}>
       <div className={`w-full mt-2 flex justify-center `}>
@@ -82,7 +97,7 @@ const LogIn = () => {
               {/*Signup button*/}
               <div className={`mt-8 drop-shadow-2xl`}>
                 <button
-                  onClick={handleSignup}
+                  onClick={handleLogin}
                   type={`button`}
                   className={`w-full rounded hover:bg-green-600 text-white bg-green-500 py-2`}
                 >
@@ -123,6 +138,13 @@ const LogIn = () => {
           </div>
         </div>
       </div>
+      <ToastContainer
+        position="top-center"
+        autoClose={1000}
+        hideProgressBar={true}
+        newestOnTop={true}
+        closeOnClick
+      />
     </div>
   )
 }

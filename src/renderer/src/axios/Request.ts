@@ -30,15 +30,12 @@ export type User = {
   userName: string
   password: string
   email: string
-  phone: string
+  phone: string,
+  avatar: string
 }
 
 export const getCode = async (user: User) => {
-  try {
-    return await instance.post(`/user/create`, user).then((response) => response.data)
-  } catch (error) {
-    console.log(error)
-  }
+  return await instance.post(`/user/create`, user).then((response) => response.data)
 }
 
 export const createUser = async (user: User) => {
@@ -47,4 +44,14 @@ export const createUser = async (user: User) => {
   } catch (error) {
     console.log(error)
   }
+}
+
+export type LoginRequest = {
+  email: string
+  password: string
+}
+
+export const login = async (loginRequest: LoginRequest) => {
+  return await instance.post(`/user/login`, loginRequest)
+    .then((response) => response.data)
 }

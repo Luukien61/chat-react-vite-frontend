@@ -7,7 +7,8 @@ import { useNavigate } from 'react-router-dom'
 import { createUser, getCode, User } from '@renderer/axios/Request'
 import appLogo from '../assets/app-icon.jpg'
 import googleLogo from '../assets/google.png'
-
+import { toast, ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 type CodeReturn = {
   code: string
@@ -24,6 +25,7 @@ const Signup = () => {
   const [verificationCode, setVerificationCode] = useState<string>('')
   // @ts-ignore
   const [isDone, setIsDone] = useState<boolean>(false)
+
   const [phone, setPhone] = useState('')
   const navigate = useNavigate()
   const [sendCode, setSendCode] = useState<boolean>(false)
@@ -49,7 +51,7 @@ const Signup = () => {
   }, [timer])
 
   const handleCreateUser = async () => {
-    if(signUpUser) {
+    if (signUpUser) {
       const savedUser: User = await createUser(signUpUser)
       localStorage.setItem('user', JSON.stringify(savedUser))
       navigate('/')
@@ -57,44 +59,54 @@ const Signup = () => {
   }
 
   const handleVerifyCode = () => {
-    console.log('Expire: ', expired)
-    console.log('Length: ', userCode.length)
-    console.log('Verification Code: ', verificationCode)
-    console.log('User code: ', userCode)
     if (userCode.length === 6 && !expired) {
       if (userCode === verificationCode && !expired) {
         setTimeout(() => setIsDone(true), 1000)
         handleCreateUser()
       } else {
-        console.log('Either verification code or expired')
+        toast.error('Either verification code or expired', {
+          hideProgressBar: true,
+          autoClose: 1000
+        })
       }
     } else {
-      console.log('Either verification code or expired')
+      toast.error('Either verification code or expired', { hideProgressBar: true, autoClose: 1000 })
     }
   }
 
   const handleSignup = async () => {
-    if (userName && email && password) {
-      const userId = generateRandomString(10)
-      const user = {
-        id: userId,
-        userName: userName,
-        email: email,
-        password: password,
-        phone: phone
+    if (userName && email && password && retypePass) {
+      if(password!=retypePass){
+        toast.error("Please confirm your password correctly")
       }
-      const result: CodeReturn = await getCode(user)
-      console.log(result)
-      setVerificationCode(result.code)
-      setSignUpUser(result.user)
-      setSendCode(true)
-      intervalTimer.current = setInterval(() => {
-        setTimer((prev) => prev - 1)
-      }, 1000)
+      else {
+        const userId = generateRandomString(10)
+        const user = {
+          id: userId,
+          userName: userName,
+          email: email,
+          password: password,
+          phone: phone,
+          avatar: "https://cdn-icons-png.flaticon.com/512/3607/3607444.png"
+        }
+        try {
+          const result: CodeReturn = await getCode(user)
+          console.log(result)
+          setVerificationCode(result.code)
+          setSignUpUser(result.user)
+          setSendCode(true)
+          intervalTimer.current = setInterval(() => {
+            setTimer((prev) => prev - 1)
+          }, 1000)
+        } catch (e: any) {
+          toast.error(e.response.data, { hideProgressBar: true, autoClose: 1000 })
+        }
+      }
+    } else {
+      toast.error("Please fill the require fields")
     }
   }
 
-  useEffect(() => {}, [codeReturn])
   const handleSignupWithGoogle = () => {}
   const handleForwardLogin = () => {
     navigate('/login', { replace: false })
@@ -135,7 +147,7 @@ const Signup = () => {
                     <button
                       onClick={handleVerifyCode}
                       type={`button`}
-                      className={`w-full rounded hover:bg-gray-800 text-white bg-primary py-2`}
+                      className={`w-full rounded hover:bg-green-600 text-white bg-green-500 py-2`}
                     >
                       Verify
                     </button>
@@ -282,6 +294,13 @@ const Signup = () => {
           </div>
         </div>
       </div>
+      <ToastContainer
+        position="top-center"
+        autoClose={1000}
+        hideProgressBar={true}
+        newestOnTop={true}
+        closeOnClick
+      />
     </div>
   )
 }
