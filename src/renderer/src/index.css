@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus,
+select:-webkit-autofill {
+
+  -webkit-text-fill-color: black;
+  -webkit-box-shadow: 0 0 0 1000px #253341 inset;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  transition: background-color 5000s ease-in-out 0s;
+  color: white;
+  /*border: 2px solid #6b6b6b; !* Đặt độ dày và màu sắc của đường viền *!*/
+  /*background-clip: padding-box; !* Đảm bảo đường viền hiển thị đúng cách *!*/
+}
+
+/* width */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 7px;
+}
