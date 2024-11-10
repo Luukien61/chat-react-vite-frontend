@@ -30,7 +30,7 @@ export type User = {
   userName: string
   password: string
   email: string
-  phone: string,
+  phone: string
   avatar: string
 }
 
@@ -52,6 +52,17 @@ export type LoginRequest = {
 }
 
 export const login = async (loginRequest: LoginRequest) => {
-  return await instance.post(`/user/login`, loginRequest)
-    .then((response) => response.data)
+  return await instance.post(`/user/login`, loginRequest).then((response) => response.data)
+}
+
+export type CodeExchange = {
+  code: string
+}
+
+export const exchangeCode = async (code: CodeExchange) => {
+  return await instance.post(`/user/exchange_token`, code).then((response) => response.data)
+}
+
+export const loginWithGoogle = async (code: CodeExchange) => {
+  return await instance.post(`/user/google/login`, code).then((response) => response.data)
 }

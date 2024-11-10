@@ -5,10 +5,13 @@ import { FiPhone } from 'react-icons/fi'
 import { RiLockPasswordLine } from 'react-icons/ri'
 import { useNavigate } from 'react-router-dom'
 import { createUser, getCode, User } from '@renderer/axios/Request'
+// @ts-ignore
 import appLogo from '../assets/app-icon.jpg'
+// @ts-ignore
 import googleLogo from '../assets/google.png'
 import { toast, ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+import { googleLogin } from '@renderer/page/LogIn'
 
 type CodeReturn = {
   code: string
@@ -25,7 +28,6 @@ const Signup = () => {
   const [verificationCode, setVerificationCode] = useState<string>('')
   // @ts-ignore
   const [isDone, setIsDone] = useState<boolean>(false)
-
   const [phone, setPhone] = useState('')
   const navigate = useNavigate()
   const [sendCode, setSendCode] = useState<boolean>(false)
@@ -54,7 +56,7 @@ const Signup = () => {
     if (signUpUser) {
       const savedUser: User = await createUser(signUpUser)
       localStorage.setItem('user', JSON.stringify(savedUser))
-      navigate('/')
+      navigate('/message')
     }
   }
 
@@ -76,10 +78,9 @@ const Signup = () => {
 
   const handleSignup = async () => {
     if (userName && email && password && retypePass) {
-      if(password!=retypePass){
-        toast.error("Please confirm your password correctly")
-      }
-      else {
+      if (password != retypePass) {
+        toast.error('Please confirm your password correctly')
+      } else {
         const userId = generateRandomString(10)
         const user = {
           id: userId,
@@ -87,7 +88,7 @@ const Signup = () => {
           email: email,
           password: password,
           phone: phone,
-          avatar: "https://cdn-icons-png.flaticon.com/512/3607/3607444.png"
+          avatar: 'https://cdn-icons-png.flaticon.com/512/3607/3607444.png'
         }
         try {
           const result: CodeReturn = await getCode(user)
@@ -103,13 +104,17 @@ const Signup = () => {
         }
       }
     } else {
-      toast.error("Please fill the require fields")
+      toast.error('Please fill the require fields')
     }
   }
 
-  const handleSignupWithGoogle = () => {}
   const handleForwardLogin = () => {
     navigate('/login', { replace: false })
+  }
+
+  const handleGoogleSignUp = async () => {
+    localStorage.setItem('action', 'signup')
+    googleLogin()
   }
 
   return (
@@ -270,7 +275,7 @@ const Signup = () => {
                 {/*Signup with Google*/}
                 <div className={`flex items-center justify-center`}>
                   <button
-                    onClick={handleSignupWithGoogle}
+                    onClick={handleGoogleSignUp}
                     type={`button`}
                     className=" flex  gap-x-3 items-center rounded-2xl bg-gray-100 p-2 hover:bg-gray-200"
                   >

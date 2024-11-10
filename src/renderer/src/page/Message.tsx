@@ -38,9 +38,12 @@ const Message = () => {
   const navigate = useNavigate()
 
   const onPrivateMessage = (payload: ChatMessage) => {
-    setPrivateChats((prevState) => [...prevState, payload])
-    handleScroll()
-    updateQuickMessage(payload)
+    const isDup=privateChats.some(item=>item.id===payload.id)
+    if(!isDup){
+      setPrivateChats((prevState) => [...prevState, payload])
+      handleScroll()
+      updateQuickMessage(payload)
+    }
   }
 
   const handleScroll = () => {
@@ -125,6 +128,7 @@ const Message = () => {
         subscribeToTopic(`/user/${currentUserId}/private`, onPrivateMessage)
       })
       getMessageByConversationId(conversationId)
+      handleScroll()
     }
     handleScroll()
   }
@@ -142,7 +146,7 @@ const Message = () => {
     if (message.trim() !== '' && currentRecipient && currentConversationId && loginUser) {
       console.log(type)
       const messageItem: ChatMessage = {
-        id: new Date().getMilliseconds().toString(),
+        id: new Date().getTime().toString(),
         content: message,
         timestamp: new Date(),
         recipientId: currentRecipient.id,
@@ -184,6 +188,10 @@ const Message = () => {
       e.preventDefault()
       sendMessages(null)
     }
+  }
+  const handleLogOut=()=>{
+    localStorage.removeItem("user")
+    navigate('/login')
   }
   // @ts-ignore
   return (
@@ -244,6 +252,9 @@ const Message = () => {
               </div>
             </div>
           ))}
+          <div>
+            <button onClick={handleLogOut}>Log out</button>
+          </div>
         </div>
       </div>
       {/*content*/}
@@ -277,7 +288,7 @@ const Message = () => {
                         className={`w-fit min-w-[80px]  max-w-[50%]  drop-shadow relative block p-[12px] rounded-[8px] ${value.senderId != currentUserId ? 'bg-white' : 'bg-chat_me'}`}
                       >
                         {value.type == 'text' ? (
-                          <pre className={`break-words px-2 py-1 font-sans text-wrap`}>
+                          <pre className={`break-words  py-1 font-sans text-wrap`}>
                             {value.content}
                           </pre>
                         ) : (

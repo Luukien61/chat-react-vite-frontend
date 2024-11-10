@@ -2,11 +2,19 @@ import { useEffect, useState } from 'react'
 import { MdOutlineMail } from 'react-icons/md'
 import { RiLockPasswordLine } from 'react-icons/ri'
 import { useNavigate } from 'react-router-dom'
+// @ts-ignore
 import appLogo from '../assets/app-icon.jpg'
+// @ts-ignore
 import googleLogo from '../assets/google.png'
 import { toast, ToastContainer } from 'react-toastify'
 import { login, LoginRequest, User } from '@renderer/axios/Request'
 
+export const googleLogin = () => {
+  const clientId: string = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  const redirectUri: string = import.meta.env.VITE_GOOGLE_REDIRECT_URL
+  const scope: string = import.meta.env.VITE_GOOGLE_SCOPE
+  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`
+}
 const LogIn = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -15,36 +23,33 @@ const LogIn = () => {
   const handleForwardSignup = () => {
     navigate('/signup', { replace: false })
   }
-  const googleLogin = () => {
-    const clientId: string = import.meta.env.VITE_GOOGLE_CLIENT_ID
-    const redirectUri: string = import.meta.env.VITE_GOOGLE_REDIRECT_URL
-    const scope: string = import.meta.env.VITE_GOOGLE_SCOPE
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`
-  }
 
   useEffect(() => {
     const user = localStorage.getItem('user')
-    if(user) navigate('/')
+    if (user) navigate('/message')
   }, [])
 
-  const handleLogin =async () => {
+  const handleLogin = async () => {
     if (email && password) {
-      const loginRequest : LoginRequest = {
+      const loginRequest: LoginRequest = {
         email: email,
-        password: password,
+        password: password
       }
-      try{
-        const result : User = await login(loginRequest)
+      try {
+        const result: User = await login(loginRequest)
         localStorage.setItem('user', JSON.stringify(result))
-        navigate('/')
-
-      }catch(err: any){
+        navigate('/message')
+      } catch (err: any) {
         toast.error(err.response.data)
       }
-
     } else {
-      toast.error("Please fill the required fields")
+      toast.error('Please fill the required fields')
     }
+  }
+
+  const handleGoogleLogin = () => {
+    localStorage.setItem('action', 'login')
+    googleLogin()
   }
 
   return (
@@ -117,7 +122,7 @@ const LogIn = () => {
               {/*Signup with Google*/}
               <div className={`flex items-center justify-center`}>
                 <button
-                  onClick={googleLogin}
+                  onClick={handleGoogleLogin}
                   type={`button`}
                   className=" flex  gap-x-3 items-center rounded-2xl bg-gray-100 p-2 hover:bg-gray-200"
                 >
