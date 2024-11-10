@@ -1,8 +1,19 @@
 /* eslint-disable */
-import { ChangeEvent, useEffect, useRef, useState } from 'react'
-import { getAllConversations, getMessages, getParticipant, User } from '@renderer/axios/Request'
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { SlCamera } from 'react-icons/sl'
+import {
+  ConversationRequest,
+  createConversation,
+  getAllConversations,
+  getMessagesByConversationId,
+  getParticipant,
+  searchConversationByUserIds,
+  searchUserByEmail,
+  User
+} from '@renderer/axios/Request'
 import { VscSend } from 'react-icons/vsc'
 import { CiImageOn } from 'react-icons/ci'
+import { debounce } from 'lodash'
 import {
   ChatMessage,
   connectWebSocket,
@@ -12,7 +23,7 @@ import {
   subscribeToTopic
 } from '@renderer/service/WebSocketService'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'react-toastify'
+import { toast, ToastContainer } from 'react-toastify'
 import { imageUpload } from '@renderer/service/Upload'
 
 type QuickMessage = {
@@ -28,6 +39,7 @@ type QuickMessage = {
 const Message = () => {
   const [typingMessage, setTypingMessage] = useState<string>('')
   const [loginUser, setLoginUser] = useState<User | null>(null)
+  const [searchUsers, setSearchUsers] = useState<Participant[]>([])
   const [searchUser, setSearchUser] = useState<string>('')
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [currentRecipient, setCurrentRecipient] = useState<Participant>()
@@ -36,27 +48,75 @@ const Message = () => {
   const [allQuickMessages, setAllQuickMessages] = useState<QuickMessage[]>([])
   const [currentConversationId, setCurrentConversationId] = useState<string>()
   const navigate = useNavigate()
+  const [updateRequest, setUpdateRequest] = useState<boolean>(true)
+  const [phone, setPhone] = useState<string>('')
+  const [password, setPassword] = useState<string>('')
+  const [retypePass, setRetypePass] = useState<string>('')
+  const [userName, setUserName] = useState<string>('')
+  const [userAvatar, setUserAvatar] = useState<string>('')
+  const [isAvatarChange, setIsAvatarChange]= useState<boolean>(false)
 
-  const onPrivateMessage = (payload: ChatMessage) => {
-    const isDup=privateChats.some(item=>item.id===payload.id)
-    if(!isDup){
-      setPrivateChats((prevState) => [...prevState, payload])
-      handleScroll()
-      updateQuickMessage(payload)
-    }
+  const debouncedHandleSearching = useRef(
+    debounce(async (value: string, userId: string) => {
+      if (value != '') {
+        let response: Participant[] = await searchUserByEmail(value)
+        response = response.filter((value1) => value1.id !== userId)
+        console.log(response)
+        setSearchUsers(response)
+      } else {
+        setSearchUsers([])
+      }
+    }, 500)
+  ).current
+
+  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const value: string = event.target.value
+    setSearchUser(value)
+    debouncedHandleSearching(value, currentUserId)
   }
+
+  const onPrivateMessage = useCallback((payload: ChatMessage) => {
+    setPrivateChats((prevChats) => {
+      const isDup = prevChats.some((item) => item.id === payload.id)
+      if (!isDup) {
+        const newChats = [...prevChats, payload]
+        updateQuickMessage(payload)
+        handleScroll()
+        return newChats
+      }
+      return prevChats
+    })
+  }, [])
 
   const handleScroll = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'instant' })
+  }
+
+  const handleSearchConversationClick = async (participant: Participant) => {
+    const participantId = participant.id
+    try {
+      const conversation: Conversation = await searchConversationByUserIds(
+        currentUserId,
+        participantId
+      )
+      if (conversation) {
+        handleClickQuickMessage(conversation.id, participantId)
+      }
+    } catch (e: any) {
+      setCurrentRecipient(participant)
+      setPrivateChats([])
+      setCurrentConversationId(undefined)
+    }
   }
 
   const getAllConversation = async (userId: string) => {
     try {
       const conversations: Conversation[] = await getAllConversations(userId)
       const quickMessagePromises = conversations.map(async (value) => {
-        let participantId: string = value.user2Id
-        if (value.user1Id !== userId) {
-          participantId = value.user1Id
+        const userIds = value.userIds
+        let participantId: string = userIds[1]
+        if (userIds[0] !== userId) {
+          participantId = userIds[0]
         }
         const participant: Participant = await getParticipant(participantId)
         const quickMessage: QuickMessage = {
@@ -80,31 +140,33 @@ const Message = () => {
     }
   }
 
-  const updateQuickMessage = (payload: ChatMessage) => {
-    allQuickMessages.forEach((message) => {
-      if (message.conversationId == payload.conversationId) {
-        message.text = payload.content
-        message.time = payload.timestamp
-        message.type = payload.type
-      }
+  const updateQuickMessage = useCallback((payload: ChatMessage) => {
+    setAllQuickMessages((prevState) => {
+      prevState.forEach((message) => {
+        if (message.conversationId == payload.conversationId) {
+          message.text = payload.content
+          message.time = payload.timestamp
+          message.type = payload.type
+        }
+      })
+      // @ts-ignore
+      return prevState.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
     })
-    // @ts-ignore
-    const updateQuickMessage = allQuickMessages.sort(
-      (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
-    )
-    setAllQuickMessages(updateQuickMessage)
-  }
+  }, [])
 
   const getMessageByConversationId = async (conversationId: string) => {
-    let messages: ChatMessage[] = await getMessages(conversationId)
-    if (messages.length > 0) {
-      messages = messages.reverse()
-      messages = messages.filter(
-        (element, index, self) => index === self.findIndex((e) => e.id === element.id)
-      )
+    try {
+      let messages: ChatMessage[] = await getMessagesByConversationId(conversationId)
+      if (messages.length > 0) {
+        messages = messages.reverse()
+        messages = messages.filter(
+          (element, index, self) => index === self.findIndex((e) => e.id === element.id)
+        )
+      }
+      setPrivateChats(messages)
+    } catch (e: any) {
+      toast.error(e.response.data)
     }
-    setPrivateChats(messages)
-    handleScroll()
   }
 
   useEffect(() => {
@@ -114,21 +176,25 @@ const Message = () => {
       setLoginUser(user)
       setCurrentUserId(user.id)
       getAllConversation(user.id)
+      setPhone(user.phone)
+      setUserName(user.userName)
+      setUserAvatar(user.avatar)
+      connectWebSocket(() => {
+        subscribeToTopic(`/user/${user.id}/private`, onPrivateMessage)
+      })
     } else {
       navigate('/login', { replace: true })
     }
+    return () => {}
   }, [])
+
   const handleClickQuickMessage = async (conversationId: string, participantId: string) => {
     const participant: Participant = await getParticipant(participantId)
     setCurrentRecipient(participant)
     setCurrentConversationId(conversationId)
     // @ts-ignore
     if (!currentRecipient || currentRecipient.id != participantId) {
-      connectWebSocket(() => {
-        subscribeToTopic(`/user/${currentUserId}/private`, onPrivateMessage)
-      })
-      getMessageByConversationId(conversationId)
-      handleScroll()
+      await getMessageByConversationId(conversationId)
     }
     handleScroll()
   }
@@ -136,32 +202,56 @@ const Message = () => {
   useEffect(() => {
     handleScroll()
   }, [privateChats])
-  const sendMessages = (message: string | null) => {
+
+  const sendMessages = async (message: string | null) => {
     let type: string = 'image'
-    console.log('message', message)
     if (message == null) {
       message = typingMessage
       type = 'text'
     }
-    if (message.trim() !== '' && currentRecipient && currentConversationId && loginUser) {
-      console.log(type)
+
+    if (message.trim() !== '' && currentRecipient && loginUser) {
+      let conversationId = currentConversationId || ''
+      if (!currentConversationId) {
+        conversationId = Date.now().toString()
+        const request: ConversationRequest = {
+          id: conversationId, //const uniqueId = uuidv4();
+          message: message,
+          type: type,
+          recipientId: currentRecipient.id,
+          senderId: currentUserId,
+          createdAt: new Date()
+        }
+        await createNewConversation(request)
+      }
       const messageItem: ChatMessage = {
         id: new Date().getTime().toString(),
         content: message,
         timestamp: new Date(),
         recipientId: currentRecipient.id,
         senderId: loginUser.id,
-        conversationId: currentConversationId,
+        conversationId: conversationId,
         type: type
       }
+      console.log(messageItem)
       sendMessage('/app/private-message', messageItem)
       setTypingMessage('')
       setPrivateChats((prevState) => [...prevState, messageItem])
       handleScroll()
       updateQuickMessage(messageItem)
+      setSearchUsers([])
+      getAllConversation(currentUserId)
     }
   }
 
+  const createNewConversation = async (request: ConversationRequest) => {
+    try {
+      setCurrentConversationId(request.id)
+      await createConversation(request)
+    } catch (e: any) {
+      toast.error(e.response.data)
+    }
+  }
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) {
@@ -189,9 +279,61 @@ const Message = () => {
       sendMessages(null)
     }
   }
-  const handleLogOut=()=>{
-    localStorage.removeItem("user")
+  const handleLogOut = () => {
+    localStorage.removeItem('user')
     navigate('/login')
+  }
+  const handleModalClicks = useCallback((event: React.MouseEvent) => {
+    event.stopPropagation()
+  }, [])
+
+  const handleAvatarUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files) {
+      const file = files[0]
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setUserAvatar(reader.result as string)
+        setIsAvatarChange(true)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleUpdateProfile=async ()=>{
+    if(password && retypePass && password===retypePass){
+      if(userName && loginUser){
+        let avatarUrl: string | null = userAvatar
+        if(isAvatarChange){
+          avatarUrl =await imageUpload({ image: userAvatar })
+        }
+        if(avatarUrl){
+          const user : User ={
+            userName: userName,
+            avatar: avatarUrl,
+            phone: phone,
+            email: loginUser?.email,
+            password: password,
+            id: loginUser.id
+          }
+        }
+      }
+      else {
+        toast.error("Please fill your name")
+      }
+    }else {
+      toast.error("Please review your password")
+    }
+  }
+
+  const handleExitClick=()=>{
+    setPassword('')
+    // @ts-ignore
+    setUserAvatar(loginUser?.avatar)
+    setPassword('')
+    setRetypePass('')
+    setUserName('')
+    setUpdateRequest(false)
   }
   // @ts-ignore
   return (
@@ -203,7 +345,7 @@ const Message = () => {
         {/*current user*/}
         <div className={`border-b shadow sticky inset-0 z-20 bg-inherit pl-3 pb-3`}>
           <div className={`flex gap-4 pt-4 pl-0 pb-3`}>
-            <div className={`flex gap-4 rounded-full`}>
+            <div className={`flex gap-4 rounded-full cursor-pointer`}>
               <img className={`w-[80px] rounded-full `} src={loginUser?.avatar} alt={'avatar'} />
               <div className={`flex items-center justify-start truncate`}>
                 <p className={`font-bold text-[18px]`}>{loginUser ? loginUser.userName : ''}</p>
@@ -213,7 +355,7 @@ const Message = () => {
           <div className={`w-full pr-3`}>
             <input
               value={searchUser}
-              onChange={(e) => setSearchUser(e.target.value)}
+              onChange={handleSearchChange}
               className={`w-full text-[16px] text-black p-2 rounded bg-gray-200 outline-none border `}
               placeholder={'Search contacts here...'}
               spellCheck={false}
@@ -222,39 +364,63 @@ const Message = () => {
         </div>
         <div className={`overflow-y-auto`}>
           {/*item*/}
-          {allQuickMessages.map((value, index) => (
-            <div
-              key={index}
-              onClick={() => handleClickQuickMessage(value.conversationId, value.recipientId)}
-              className={`px-2 mt-1 hover:bg-gray-100 cursor-pointer rounded py-3  flex gap-x-2 ${currentRecipient && currentRecipient.id == value.recipientId ? 'bg-[#E5EFFF]' : 'bg-white'}`}
-            >
-              <div className={` flex items-center gap-x-3 w-[90%]`}>
-                <img
-                  alt={'user'}
-                  className={`h-[48px] aspect-square rounded-[100%]`}
-                  src={value.avatar}
-                />
-                <div className={`h-full w-full max-w-full overflow-hidden`}>
-                  <div className={`flex`}>
-                    <p className={`truncate max-w-full text-[#081C36]`}>{value.name}</p>
-                    <p className={`flex-1 text-gray-600 flex justify-end items-start`}>
-                      {new Date(value.time).getHours().toString().padStart(2, '0') +
-                        ':' +
-                        new Date(value.time).getMinutes().toString().padStart(2, '0')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className={`truncate max-w-[90%] text-gray-500`}>
-                      {value.type == 'image' ? '[Hình ảnh]' : value.text}
-                    </p>
+          {searchUsers.length > 0 ? (
+            <>
+              {searchUsers.map((user, index) => (
+                <div
+                  onClick={() => handleSearchConversationClick(user)}
+                  key={index}
+                  className={`px-2 mt-1 hover:bg-gray-100 border-t cursor-pointer rounded py-3  flex gap-x-2 bg-white`}
+                >
+                  <div className={` flex items-center gap-x-3 w-[90%]`}>
+                    <img
+                      alt={'user'}
+                      className={`h-[48px] aspect-square rounded-[100%]`}
+                      src={user.avatar}
+                    />
+                    <div className={`h-full w-full max-w-full overflow-hidden`}>
+                      <div className={`flex`}>
+                        <p className={`truncate max-w-full text-[#081C36]`}>{user.name}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          ))}
-          <div>
-            <button onClick={handleLogOut}>Log out</button>
-          </div>
+              ))}
+            </>
+          ) : (
+            <>
+              {allQuickMessages.map((value, index) => (
+                <div
+                  key={index}
+                  onClick={() => handleClickQuickMessage(value.conversationId, value.recipientId)}
+                  className={`px-2 mt-1 hover:bg-gray-100 border-t cursor-pointer rounded py-3  flex gap-x-2 ${currentRecipient && currentRecipient.id == value.recipientId ? 'bg-[#E5EFFF]' : 'bg-white'}`}
+                >
+                  <div className={` flex items-center gap-x-3 w-[90%]`}>
+                    <img
+                      alt={'user'}
+                      className={`h-[48px] aspect-square rounded-[100%]`}
+                      src={value.avatar}
+                    />
+                    <div className={`h-full w-full max-w-full overflow-hidden`}>
+                      <div className={`flex`}>
+                        <p className={`truncate max-w-full text-[#081C36]`}>{value.name}</p>
+                        <p className={`flex-1 text-gray-600 flex justify-end items-start`}>
+                          {new Date(value.time).getHours().toString().padStart(2, '0') +
+                            ':' +
+                            new Date(value.time).getMinutes().toString().padStart(2, '0')}
+                        </p>
+                      </div>
+                      <div>
+                        <p className={`truncate max-w-[90%] text-gray-500`}>
+                          {value.type == 'image' ? '[Hình ảnh]' : value.text}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       </div>
       {/*content*/}
@@ -332,6 +498,7 @@ const Message = () => {
 
           <div className={`bg-white  flex py-2 items-center gap-x-3`}>
             <textarea
+              disabled={!currentRecipient}
               onKeyDown={handleKeyDown}
               value={typingMessage}
               onChange={(e) => setTypingMessage(e.target.value)}
@@ -348,6 +515,155 @@ const Message = () => {
           </div>
         </div>
       </div>
+
+      <div
+        className={`backdrop-blur-sm bg-black bg-opacity-60 flex overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-center w-full h-full max-h-full `}
+      >
+        <div
+          onClick={(event) => handleModalClicks(event)}
+          className="relative p-4 max-w-[60%] max-h-full"
+        >
+          <div className="relative bg-[#f5f5f5] rounded-lg flex items-center justify-center min-h-60 shadow ">
+            <div className={`overflow-hidden `}>
+              <div className="bg-white border-b min-w-[400px] rounded-xl shadow p-5 px-0 relative z-10 min-h-4 ">
+                <div className={`flex flex-col gap-3 `}>
+                  <img
+                    className={`w-[400px] h-[170px] object-cover `}
+                    src={
+                      'https://res.cloudinary.com/dmi3xizxq/image/upload/v1731252320/30_Gorgeous_Wallpapers_for_Your_Desktop_eguzdi.jpg'
+                    }
+                    alt={''}
+                  />
+                  <div className={`flex relative h-[50px] px-2`}>
+                    <div className={`h-full relative w-1/4 min-w-[90px]`}>
+                      <img
+                        className={`absolute rounded-full object-cover  -top-[80%] w-[80px]  aspect-square`}
+                        src={userAvatar}
+                        alt={'avatar'}
+                      />
+                      {updateRequest && (
+                        <div
+                          className={`flex items-center absolute bottom-0 left-[50%] z-50 justify-start py-1  w-full`}
+                        >
+                          <label className="flex flex-col items-center justify-start w-fit h-full  rounded-lg cursor-pointer  ">
+                            <SlCamera size={26} />
+                            <input
+                              onChange={handleAvatarUpload}
+                              type="file"
+                              accept={'image/*'}
+                              multiple={false}
+                              className="hidden outline-none"
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                    <div className={``}>
+                      <p className={`text-black font-bold text-[18px]`}>{loginUser?.userName}</p>
+                    </div>
+                  </div>
+                  <div className={`flex flex-col gap-4 text-[18px] px-3`}>
+                    <div className={`flex gap-4 overflow-hidden`}>
+                      <p className={`w-[75px]`}>Email: </p>
+                      <p className={`truncate text-gray-600`}>{loginUser?.email}</p>
+                    </div>
+                    {updateRequest && (
+                      <div className={`flex gap-4 overflow-hidden`}>
+                        <p className={`w-[75px]`}>Name: </p>
+                        <input
+                          value={userName}
+                          onChange={(e) => setUserName(e.target.value)}
+                          spellCheck={false}
+                          className={`outline-none border px-1 text-black rounded `}
+                        />
+                      </div>
+                    )}
+                    <div className={`flex gap-4 overflow-hidden`}>
+                      <p className={`w-[75px]`}>Phone: </p>
+
+                      {updateRequest ? (
+                        <input
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          spellCheck={false}
+                          className={`outline-none border px-1 text-black rounded `}
+                        />
+                      ) : (
+                        <p className={`truncate text-gray-600`}>
+                          {loginUser?.phone || 'No number yet'}
+                        </p>
+                      )}
+                    </div>
+                    <div className={`flex gap-4 overflow-hidden`}>
+                      <p className={`w-[75px]`}>Password: </p>
+                      {updateRequest ? (
+                        <input
+                          type={'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          spellCheck={false}
+                          className={`outline-none border px-1 text-black rounded `}
+                        />
+                      ) : (
+                        <p className={`truncate text-gray-600`}>*********</p>
+                      )}
+                    </div>
+                    {updateRequest && (
+                      <div className={`flex gap-4 overflow-hidden items-end`}>
+                        <p className={`w-[75px]`}>Confirm password: </p>
+                        <input
+                          type={'password'}
+                          value={retypePass}
+                          onChange={(e) => setRetypePass(e.target.value)}
+                          spellCheck={false}
+                          className={`outline-none border px-1 h-fit text-black rounded `}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {updateRequest ? (
+                    <div className={`flex justify-end gap-4 px-3`}>
+                      <button
+                        className={`p-2 rounded bg-red-500 text-white font-bold hover:bg-red-600`}
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        onClick={handleExitClick}
+                        className={`p-2 rounded bg-blue-500 text-white font-bold hover:bg-blue-600`}
+                      >
+                        Exit
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={`flex justify-end gap-4 px-3`}>
+                      <button
+                        onClick={()=>setUpdateRequest(true)}
+                        className={`p-2 rounded bg-blue-500 text-white font-bold hover:bg-blue-600`}
+                      >
+                        Update
+                      </button>
+                      <button
+                        onClick={handleLogOut}
+                        className={`p-2 rounded bg-red-500 text-white font-bold hover:bg-red-600`}
+                      >
+                        LogOut
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ToastContainer
+        position="top-center"
+        autoClose={1000}
+        hideProgressBar={true}
+        newestOnTop={true}
+        closeOnClick
+      />
     </div>
   )
 }

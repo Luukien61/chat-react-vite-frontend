@@ -18,8 +18,7 @@ export type ChatMessage = {
 }
 export type Conversation = {
   id: string
-  user1Id: string
-  user2Id: string
+  userIds: string[]
   modifiedAt: Date
   lastMessage: string,
   type: string
@@ -72,10 +71,7 @@ export const subscribeToTopic = (
   destination: string,
   callback: (message: any) => void
 ): StompSubscription | undefined => {
-  console.log('Client: ', client)
-  console.log('Client connected: ', client?.connected)
   if (client && client.connected) {
-    console.log('Subscribing to topic', destination)
     return client.subscribe(destination, (message: IMessage) => {
       callback(JSON.parse(message.body))
     })
