@@ -1,5 +1,13 @@
 /* eslint-disable */
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext
+} from '@renderer/components/ui/carousel'
+import { CardContent, Card } from '@renderer/components/ui/card'
 import { SlCamera } from 'react-icons/sl'
 import {
   ConversationRequest,
@@ -8,12 +16,15 @@ import {
   getMessagesByConversationId,
   getParticipant,
   searchConversationByUserIds,
-  searchUserByEmail, updateProfile,
+  searchUserByEmail,
+  updateProfile,
   User
 } from '@renderer/axios/Request'
 import { VscSend } from 'react-icons/vsc'
 import { CiImageOn } from 'react-icons/ci'
 import { debounce } from 'lodash'
+import Autoplay from 'embla-carousel-autoplay'
+
 import {
   ChatMessage,
   connectWebSocket,
@@ -25,6 +36,15 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { toast, ToastContainer } from 'react-toastify'
 import { imageUpload } from '@renderer/service/Upload'
+import { delay } from '@renderer/page/GoogleCode'
+// @ts-ignore
+import zalo0 from '@renderer/assets/zalo-1_470158.png'
+// @ts-ignore
+import zalo1 from '@renderer/assets/quick-message-onboard-1.png'
+// @ts-ignore
+import zalo2 from '@renderer/assets/inapp-welcome-screen-03.png'
+// @ts-ignore
+import zalo3 from '@renderer/assets/inapp-welcome-screen-04.jpg'
 
 type QuickMessage = {
   id: string
@@ -36,6 +56,30 @@ type QuickMessage = {
   conversationId: string
   type: string
 }
+
+type CarouselItemProps = {
+  imageUrl: string
+  message: string
+}
+const CarouselItems: CarouselItemProps[] = [
+  {
+    imageUrl: zalo0,
+    message: 'Boots your business '
+  },
+  {
+    imageUrl: zalo1,
+    message: 'Message more, work less'
+  },
+  {
+    imageUrl: zalo2,
+    message: 'Stay connected and work on any devices'
+  },
+  {
+    imageUrl: zalo3,
+    message: 'Send files with chat'
+  }
+]
+
 const Message = () => {
   const [typingMessage, setTypingMessage] = useState<string>('')
   const [loginUser, setLoginUser] = useState<User | null>(null)
@@ -55,7 +99,8 @@ const Message = () => {
   const [retypePass, setRetypePass] = useState<string>('')
   const [userName, setUserName] = useState<string>('')
   const [userAvatar, setUserAvatar] = useState<string>('')
-  const [isAvatarChange, setIsAvatarChange]= useState<boolean>(false)
+  const [isAvatarChange, setIsAvatarChange] = useState<boolean>(false)
+  const [isGoogleAccount,setIsGoogleAccount] = useState<boolean>(false)
 
   const debouncedHandleSearching = useRef(
     debounce(async (value: string, userId: string) => {
@@ -77,7 +122,6 @@ const Message = () => {
   }
 
   const onPrivateMessage = useCallback((payload: ChatMessage) => {
-
     setPrivateChats((prevChats) => {
       const isDup = prevChats.some((item) => item.id === payload.id)
       if (!isDup) {
@@ -156,7 +200,7 @@ const Message = () => {
     })
   }, [])
 
-  const updateAllQuickMessage=(payload: ChatMessage) => {
+  const updateAllQuickMessage = (payload: ChatMessage) => {
     allQuickMessages.forEach((message) => {
       if (message.conversationId == payload.conversationId) {
         message.text = payload.content
@@ -193,6 +237,7 @@ const Message = () => {
       setLoginUser(user)
       setCurrentUserId(user.id)
       getAllConversation(user.id)
+      setIsGoogleAccount(user.id.startsWith("google_"))
       connectWebSocket(() => {
         subscribeToTopic(`/user/${user.id}/private`, onPrivateMessage)
       })
@@ -210,6 +255,7 @@ const Message = () => {
     if (!currentRecipient || currentRecipient.id != participantId) {
       await getMessageByConversationId(conversationId)
     }
+    await delay(20)
     handleScroll()
   }
 
@@ -239,7 +285,7 @@ const Message = () => {
         }
         await createNewConversation(request)
         setCurrentConversationId(conversationId)
-        isConverExist=false
+        isConverExist = false
       }
       const messageItem: ChatMessage = {
         id: new Date().getTime().toString(),
@@ -257,7 +303,7 @@ const Message = () => {
       handleScroll()
       updateAllQuickMessage(messageItem)
       setSearchUsers([])
-      if(!isConverExist) getAllConversation(currentUserId)
+      if (!isConverExist) getAllConversation(currentUserId)
     }
   }
 
@@ -317,19 +363,19 @@ const Message = () => {
     }
   }
 
-  const handleUpdateProfile=async ()=>{
-    if(password && retypePass && password===retypePass){
-      if(userName && loginUser){
+  const handleUpdateProfile = async () => {
+    if ((password && retypePass && password === retypePass)|| isGoogleAccount) {
+      if (userName && loginUser) {
         let avatarUrl: string | null = userAvatar
-        if(isAvatarChange){
-          try{
+        if (isAvatarChange) {
+          try {
             avatarUrl = await imageUpload({ image: userAvatar })
-          }catch (e: any){
+          } catch (e: any) {
             toast.error(e.response.data)
           }
         }
-        if(avatarUrl){
-          const user : User ={
+        if (avatarUrl) {
+          const user: User = {
             userName: userName,
             avatar: avatarUrl,
             phone: phone,
@@ -337,30 +383,29 @@ const Message = () => {
             password: password,
             id: loginUser.id
           }
-          try{
-            const updateUser : User =  await updateProfile(user)
+          try {
+            const updateUser: User = await updateProfile(user)
             localStorage.setItem('user', JSON.stringify(updateUser))
             setLoginUser(updateUser)
             setUpdateRequest(false)
-          }catch (e:any){
+          } catch (e: any) {
             toast.error(e.response.data)
           }
         }
+      } else {
+        toast.error('Please fill your name')
       }
-      else {
-        toast.error("Please fill your name")
-      }
-    }else {
-      toast.error("Please review your password")
+    } else {
+      toast.error('Please review your password')
     }
   }
 
-  const handleOpenModal=()=>{
-    setOpenModal(prevState => !prevState)
+  const handleOpenModal = () => {
+    setOpenModal((prevState) => !prevState)
   }
 
-  const handleExitClick=()=>{
-    if(loginUser){
+  const handleExitClick = () => {
+    if (loginUser) {
       setPassword(loginUser.password)
       // @ts-ignore
       setUserAvatar(loginUser.avatar)
@@ -368,12 +413,16 @@ const Message = () => {
       setUserName(loginUser.userName)
       setUpdateRequest(false)
     }
-
   }
 
-  const handleUpdateRequest =()=>{
-    if(loginUser){
+  const handleCloseModal=()=>{
+    setOpenModal(false)
+    handleExitClick()
+  }
+  const handleUpdateRequest = () => {
+    if (loginUser) {
       setPhone(loginUser.phone)
+      setRetypePass(loginUser.password)
       setUserName(loginUser.userName)
       setPassword(loginUser.password)
       setUserAvatar(loginUser.avatar)
@@ -382,18 +431,20 @@ const Message = () => {
   }
   // @ts-ignore
   return (
-    <div className={`flex text-[16px]`}>
+    <div className={`flex text-[16px] overflow-hidden h-full`}>
       {/*nav*/}
       <div
-        className={`w-[25%] min-w-[300px] relative min-h-screen overflow-hidden z-10 bg-white border-r border-r-gray-400 border-gray h-[100vh] overflow-y-auto `}
+        className={`w-[25%] min-w-[300px] relative min-h-screen overflow-hidden z-10 bg-white border-r border-r-gray-400 border-gray  overflow-y-auto `}
       >
         {/*current user*/}
         <div className={`border-b shadow sticky inset-0 z-20 bg-inherit pl-3 pb-3`}>
           <div className={`flex gap-4 pt-4 pl-0 pb-3`}>
-            <div
-              onClick={handleOpenModal}
-              className={`flex gap-4 rounded-full cursor-pointer`}>
-              <img className={`w-[80px] rounded-full aspect-square object-cover`} src={loginUser?.avatar} alt={'avatar'} />
+            <div onClick={handleOpenModal} className={`flex gap-4 rounded-full cursor-pointer`}>
+              <img
+                className={`w-[80px] rounded-full aspect-square object-cover`}
+                src={loginUser?.avatar}
+                alt={'avatar'}
+              />
               <div className={`flex items-center justify-start truncate`}>
                 <p className={`font-bold text-[18px]`}>{loginUser ? loginUser.userName : ''}</p>
               </div>
@@ -404,7 +455,7 @@ const Message = () => {
               value={searchUser}
               onChange={handleSearchChange}
               className={`w-full text-[16px] text-black p-2 rounded bg-gray-200 outline-none border `}
-              placeholder={'Search contacts here...'}
+              placeholder={'Search email here...'}
               spellCheck={false}
             />
           </div>
@@ -470,102 +521,142 @@ const Message = () => {
           )}
         </div>
       </div>
-      {/*content*/}
-      <div className={`flex-1 bg-[#EEF0F1] flex flex-col`}>
-        {/*header*/}
-        <div
-          className={`bg-white transition-transform duration-300 px-3 py-2 flex gap-x-2 items-center`}
-        >
-          {currentRecipient && (
+      {currentRecipient ? (
+        // content
+        <div className={`flex-1 bg-[#EEF0F1] flex flex-col`}>
+          {/*header*/}
+          <div
+            className={`bg-white border-b  transition-transform duration-300 px-3 py-2 flex gap-x-2 items-start`}
+          >
             <img
               alt={'user'}
               className={`h-[48px] aspect-square object-cover rounded-[100%]`}
               src={currentRecipient.avatar}
             />
-          )}
-          <p>{currentRecipient ? currentRecipient.name : ''}</p>
-        </div>
-        {/*content*/}
-        <div className={`flex-1 overflow-hidden relative h-full w-full`}>
-          <div className={`absolute inset-0 overflow-y-scroll overflow-x-hidden ml-3 pr-3`}>
-            <div className={`min-h-[100%] flex pb-[28px] flex-col  justify-end`}>
-              <div className={`min-h-full flex pb-[48px] gap-y-4 flex-col justify-end `}>
-                {/*message card*/}
-                {privateChats.length > 0 &&
-                  privateChats.map((value, index) => (
-                    <div
-                      key={index}
-                      className={`m-x-[16px] w-full flex ${value.senderId != loginUser?.id ? 'justify-start' : 'justify-end'}`}
-                    >
+            <p className={`font-bold`}>{currentRecipient.name}</p>
+          </div>
+          {/*content*/}
+          <div className={`flex-1 overflow-hidden relative h-full w-full`}>
+            <div className={`absolute inset-0 overflow-y-scroll overflow-x-hidden ml-3 pr-3`}>
+              <div className={`min-h-[100%] flex pb-[28px] flex-col  justify-end`}>
+                <div className={`min-h-full flex pb-[48px] gap-y-4 flex-col justify-end `}>
+                  {/*message card*/}
+                  {privateChats.length > 0 &&
+                    privateChats.map((value, index) => (
                       <div
-                        className={`w-fit min-w-[80px]  max-w-[50%]  drop-shadow relative block p-[12px] rounded-[8px] ${value.senderId != currentUserId ? 'bg-white' : 'bg-chat_me'}`}
+                        key={index}
+                        className={`m-x-[16px] w-full flex ${value.senderId != loginUser?.id ? 'justify-start' : 'justify-end'}`}
                       >
-                        {value.type == 'text' ? (
-                          <pre className={`break-words  py-1 font-sans text-wrap`}>
-                            {value.content}
-                          </pre>
-                        ) : (
-                          <div>
-                            <img
-                              className={`object-contain rounded`}
-                              src={value.content}
-                              alt={value.content}
-                            />
-                          </div>
-                        )}
+                        <div
+                          className={`w-fit min-w-[80px]  max-w-[50%]  drop-shadow relative block p-[12px] rounded-[8px] ${value.senderId != currentUserId ? 'bg-white' : 'bg-chat_me'}`}
+                        >
+                          {value.type == 'text' ? (
+                            <pre className={`break-words  py-1 font-sans text-wrap`}>
+                              {value.content}
+                            </pre>
+                          ) : (
+                            <div>
+                              <img
+                                className={`object-contain rounded`}
+                                src={value.content}
+                                alt={value.content}
+                              />
+                            </div>
+                          )}
 
-                        <p className={`text-[#476285] text-[12px]`}>
-                          {new Date(value.timestamp).getHours().toString().padStart(2, '0') +
-                            ':' +
-                            new Date(value.timestamp).getMinutes().toString().padStart(2, '0')}
-                        </p>
+                          <p className={`text-[#476285] text-[12px]`}>
+                            {new Date(value.timestamp).getHours().toString().padStart(2, '0') +
+                              ':' +
+                              new Date(value.timestamp).getMinutes().toString().padStart(2, '0')}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                </div>
+                <div className={`h-[14px] break-words `} ref={bottomRef}></div>
               </div>
-              <div className={`h-[14px] break-words `} ref={bottomRef}></div>
             </div>
           </div>
-        </div>
-        {/*type*/}
-        <div className={`flex flex-col bg-white px-3`}>
-          <div className={`flex items-center justify-start py-1 border-b w-full`}>
-            <label className="flex flex-col items-center justify-start w-fit h-full  rounded-lg cursor-pointer  ">
-              <CiImageOn size={26} />
-              <input
-                onChange={handleImageChange}
-                id="dropzone-file"
-                type="file"
-                accept={'image/*'}
-                multiple={true}
-                className="hidden outline-none"
+          {/*type*/}
+          <div className={`flex flex-col bg-white px-3`}>
+            <div className={`flex items-center justify-start py-1 border-b w-full`}>
+              <label className="flex flex-col items-center justify-start w-fit h-full  rounded-lg cursor-pointer  ">
+                <CiImageOn size={26} />
+                <input
+                  disabled={!currentRecipient}
+                  onChange={handleImageChange}
+                  id="dropzone-file"
+                  type="file"
+                  accept={'image/*'}
+                  multiple={true}
+                  className="hidden outline-none"
+                />
+              </label>
+            </div>
+
+            <div className={`bg-white  flex py-2 items-center gap-x-3`}>
+              <textarea
+                disabled={!currentRecipient}
+                onKeyDown={handleKeyDown}
+                value={typingMessage}
+                onChange={(e) => setTypingMessage(e.target.value)}
+                spellCheck={false}
+                placeholder={'Nhập tin nhắn...'}
+                className={`w-full px-3 py-2 outline-none resize-none flex-1 self-center !h-[50px]`}
               />
-            </label>
-          </div>
-
-          <div className={`bg-white  flex py-2 items-center gap-x-3`}>
-            <textarea
-              disabled={!currentRecipient}
-              onKeyDown={handleKeyDown}
-              value={typingMessage}
-              onChange={(e) => setTypingMessage(e.target.value)}
-              spellCheck={false}
-              placeholder={'Nhập tin nhắn...'}
-              className={`w-full px-3 py-2 outline-none resize-none flex-1 self-center !h-[50px]`}
-            />
-            <div
-              onClick={() => sendMessages(null)}
-              className={`cursor-pointer hover:text-green-500 `}
-            >
-              <VscSend size={28} />
+              <div
+                onClick={() => sendMessages(null)}
+                className={`${currentRecipient ? 'cursor-pointer hover:text-green-500' : 'disabled'}`}
+              >
+                <VscSend size={28} />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        // carousel
+        <div className={`flex-1 bg-white flex flex-col  w-full`}>
+          <div
+            className={`flex-1 overflow-hidden  flex items-center justify-center relative h-full w-full`}
+          >
+            <Carousel
+              plugins={[
+                Autoplay({
+                  delay: 2000
+                })
+              ]}
+              opts={{
+                loop: true
+              }}
+              className="w-[60%]"
+            >
+              <CarouselContent>
+                {CarouselItems.map((item, index) => (
+                  <CarouselItem key={index}>
+                    <div className="p-1">
+                      <Card>
+                        <CardContent className="flex items-center flex-col gap-6 justify-center p-6">
+                          <img src={item.imageUrl} alt={''} className={``} />
+                          <div>
+                            <p className={`text-blue-500 font-bold `}>{item.message}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious />
+              <CarouselNext />
+            </Carousel>
+          </div>
+        </div>
+      )}
 
+      {/*modal*/}
       <div
-        onClick={()=>setOpenModal(false)}
-        className={`backdrop-blur-sm bg-black bg-opacity-60 flex overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-center w-full h-full max-h-full ${openModal ? 'block': 'hidden'}`}
+        onClick={handleCloseModal}
+        className={`backdrop-blur-sm bg-black bg-opacity-60 flex overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-center w-full h-full max-h-full ${openModal ? 'block' : 'hidden'}`}
       >
         <div
           onClick={(event) => handleModalClicks(event)}
@@ -594,7 +685,9 @@ const Message = () => {
                           className={`flex items-center absolute bottom-0 left-[50%] z-50 justify-start py-1  w-full`}
                         >
                           <label className="flex flex-col  items-center justify-start w-fit h-full  rounded-lg cursor-pointer  ">
-                            <div className={`bg-gray-200 w-[30px] flex items-center justify-center border rounded-full aspect-square`}>
+                            <div
+                              className={`bg-gray-200 w-[30px] flex items-center justify-center border rounded-full aspect-square`}
+                            >
                               <SlCamera size={16} />
                             </div>
                             <input
@@ -644,21 +737,23 @@ const Message = () => {
                         </p>
                       )}
                     </div>
-                    <div className={`flex gap-4 overflow-hidden`}>
-                      <p className={`w-[75px]`}>Password: </p>
-                      {updateRequest ? (
-                        <input
-                          type={'password'}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          spellCheck={false}
-                          className={`outline-none border px-1 text-black rounded `}
-                        />
-                      ) : (
-                        <p className={`truncate text-gray-600`}>*********</p>
-                      )}
-                    </div>
-                    {updateRequest && (
+                    {!isGoogleAccount && (
+                      <div className={`flex gap-4 overflow-hidden`}>
+                        <p className={`w-[75px]`}>Password: </p>
+                        {updateRequest ? (
+                          <input
+                            type={'password'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            spellCheck={false}
+                            className={`outline-none border px-1 text-black rounded `}
+                          />
+                        ) : (
+                          <p className={`truncate text-gray-600`}>*********</p>
+                        )}
+                      </div>
+                    )}
+                    {updateRequest && !isGoogleAccount && (
                       <div className={`flex gap-4 overflow-hidden items-end`}>
                         <p className={`w-[75px]`}>Confirm password: </p>
                         <input

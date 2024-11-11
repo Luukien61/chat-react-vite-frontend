@@ -12,7 +12,6 @@ const GoogleCode = () => {
   const handleCodeExchange = async (code: string) => {
     try {
       if (code) {
-        console.log("type", type)
         let rawUserInfo: User | null = null
         if (type == 'signup') {
           rawUserInfo = await exchangeCode({ code: code })
