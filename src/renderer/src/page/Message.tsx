@@ -77,6 +77,7 @@ const Message = () => {
   }
 
   const onPrivateMessage = useCallback((payload: ChatMessage) => {
+
     setPrivateChats((prevChats) => {
       const isDup = prevChats.some((item) => item.id === payload.id)
       if (!isDup) {
@@ -155,6 +156,21 @@ const Message = () => {
     })
   }, [])
 
+  const updateAllQuickMessage=(payload: ChatMessage) => {
+    allQuickMessages.forEach((message) => {
+      if (message.conversationId == payload.conversationId) {
+        message.text = payload.content
+        message.time = payload.timestamp
+        message.type = payload.type
+      }
+    })
+    // @ts-ignore
+    const updateQuickMessage = allQuickMessages.sort(
+      (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
+    )
+    setAllQuickMessages(updateQuickMessage)
+  }
+
   const getMessageByConversationId = async (conversationId: string) => {
     try {
       let messages: ChatMessage[] = await getMessagesByConversationId(conversationId)
@@ -177,10 +193,6 @@ const Message = () => {
       setLoginUser(user)
       setCurrentUserId(user.id)
       getAllConversation(user.id)
-      setPhone(user.phone)
-      setUserName(user.userName)
-      setPassword(user.password)
-      setUserAvatar(user.avatar)
       connectWebSocket(() => {
         subscribeToTopic(`/user/${user.id}/private`, onPrivateMessage)
       })
@@ -214,6 +226,7 @@ const Message = () => {
 
     if (message.trim() !== '' && currentRecipient && loginUser) {
       let conversationId = currentConversationId || ''
+      let isConverExist = true
       if (!currentConversationId) {
         conversationId = Date.now().toString()
         const request: ConversationRequest = {
@@ -225,6 +238,8 @@ const Message = () => {
           createdAt: new Date()
         }
         await createNewConversation(request)
+        setCurrentConversationId(conversationId)
+        isConverExist=false
       }
       const messageItem: ChatMessage = {
         id: new Date().getTime().toString(),
@@ -235,14 +250,14 @@ const Message = () => {
         conversationId: conversationId,
         type: type
       }
-      console.log(messageItem)
+
       sendMessage('/app/private-message', messageItem)
       setTypingMessage('')
       setPrivateChats((prevState) => [...prevState, messageItem])
       handleScroll()
-      updateQuickMessage(messageItem)
+      updateAllQuickMessage(messageItem)
       setSearchUsers([])
-      getAllConversation(currentUserId)
+      if(!isConverExist) getAllConversation(currentUserId)
     }
   }
 
@@ -326,6 +341,7 @@ const Message = () => {
             const updateUser : User =  await updateProfile(user)
             localStorage.setItem('user', JSON.stringify(updateUser))
             setLoginUser(updateUser)
+            setUpdateRequest(false)
           }catch (e:any){
             toast.error(e.response.data)
           }
@@ -354,6 +370,16 @@ const Message = () => {
     }
 
   }
+
+  const handleUpdateRequest =()=>{
+    if(loginUser){
+      setPhone(loginUser.phone)
+      setUserName(loginUser.userName)
+      setPassword(loginUser.password)
+      setUserAvatar(loginUser.avatar)
+      setUpdateRequest(true)
+    }
+  }
   // @ts-ignore
   return (
     <div className={`flex text-[16px]`}>
@@ -367,7 +393,7 @@ const Message = () => {
             <div
               onClick={handleOpenModal}
               className={`flex gap-4 rounded-full cursor-pointer`}>
-              <img className={`w-[80px] rounded-full `} src={loginUser?.avatar} alt={'avatar'} />
+              <img className={`w-[80px] rounded-full aspect-square object-cover`} src={loginUser?.avatar} alt={'avatar'} />
               <div className={`flex items-center justify-start truncate`}>
                 <p className={`font-bold text-[18px]`}>{loginUser ? loginUser.userName : ''}</p>
               </div>
@@ -396,7 +422,7 @@ const Message = () => {
                   <div className={` flex items-center gap-x-3 w-[90%]`}>
                     <img
                       alt={'user'}
-                      className={`h-[48px] aspect-square rounded-[100%]`}
+                      className={`h-[48px] aspect-square object-cover rounded-[100%]`}
                       src={user.avatar}
                     />
                     <div className={`h-full w-full max-w-full overflow-hidden`}>
@@ -419,7 +445,7 @@ const Message = () => {
                   <div className={` flex items-center gap-x-3 w-[90%]`}>
                     <img
                       alt={'user'}
-                      className={`h-[48px] aspect-square rounded-[100%]`}
+                      className={`h-[48px] aspect-square object-cover rounded-[100%]`}
                       src={value.avatar}
                     />
                     <div className={`h-full w-full max-w-full overflow-hidden`}>
@@ -453,7 +479,7 @@ const Message = () => {
           {currentRecipient && (
             <img
               alt={'user'}
-              className={`h-[48px] aspect-square rounded-[100%]`}
+              className={`h-[48px] aspect-square object-cover rounded-[100%]`}
               src={currentRecipient.avatar}
             />
           )}
@@ -567,8 +593,10 @@ const Message = () => {
                         <div
                           className={`flex items-center absolute bottom-0 left-[50%] z-50 justify-start py-1  w-full`}
                         >
-                          <label className="flex flex-col items-center justify-start w-fit h-full  rounded-lg cursor-pointer  ">
-                            <SlCamera size={26} />
+                          <label className="flex flex-col  items-center justify-start w-fit h-full  rounded-lg cursor-pointer  ">
+                            <div className={`bg-gray-200 w-[30px] flex items-center justify-center border rounded-full aspect-square`}>
+                              <SlCamera size={16} />
+                            </div>
                             <input
                               onChange={handleAvatarUpload}
                               type="file"
@@ -661,7 +689,7 @@ const Message = () => {
                   ) : (
                     <div className={`flex justify-end gap-4 px-3`}>
                       <button
-                        onClick={()=>setUpdateRequest(true)}
+                        onClick={handleUpdateRequest}
                         className={`p-2 rounded bg-blue-500 text-white font-bold hover:bg-blue-600`}
                       >
                         Update

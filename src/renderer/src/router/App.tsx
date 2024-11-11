@@ -4,11 +4,13 @@ import LogIn from '@renderer/page/LogIn'
 import Signup from '@renderer/page/SignUp'
 import GoogleCode from '@renderer/page/GoogleCode'
 import WhitePage from '@renderer/page/WhitePage'
+import MainApp from '@renderer/page/MainApp'
 
 export function App() {
   return (
     <HashRouter>
       <Routes>
+        <Route path="/"  element={<MainApp/>}/>
         <Route path="/message" element={<Message />} />
         <Route path="/login/*" element={<LogIn />} />
         <Route path="/signup" element={<Signup />} />
