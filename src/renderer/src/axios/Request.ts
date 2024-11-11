@@ -76,3 +76,11 @@ export type ConversationRequest = {
 export const createConversation = async (request: ConversationRequest) => {
   return await instance.post(`/conversation/private`, request).then((response) => response.data)
 }
+
+export const updateProfile =async (user: User) => {
+  return await instance.post(`/user/update`, user).then((response) => response.data)
+}
+
+export const getUserProfile = async (userId: string) => {
+  return await instance.get(`/user/profile/${userId}`).then((response) => response.data)
+}

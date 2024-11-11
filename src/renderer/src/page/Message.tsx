@@ -8,7 +8,7 @@ import {
   getMessagesByConversationId,
   getParticipant,
   searchConversationByUserIds,
-  searchUserByEmail,
+  searchUserByEmail, updateProfile,
   User
 } from '@renderer/axios/Request'
 import { VscSend } from 'react-icons/vsc'
@@ -48,7 +48,8 @@ const Message = () => {
   const [allQuickMessages, setAllQuickMessages] = useState<QuickMessage[]>([])
   const [currentConversationId, setCurrentConversationId] = useState<string>()
   const navigate = useNavigate()
-  const [updateRequest, setUpdateRequest] = useState<boolean>(true)
+  const [updateRequest, setUpdateRequest] = useState<boolean>(false)
+  const [openModal, setOpenModal] = useState<boolean>(false)
   const [phone, setPhone] = useState<string>('')
   const [password, setPassword] = useState<string>('')
   const [retypePass, setRetypePass] = useState<string>('')
@@ -178,6 +179,7 @@ const Message = () => {
       getAllConversation(user.id)
       setPhone(user.phone)
       setUserName(user.userName)
+      setPassword(user.password)
       setUserAvatar(user.avatar)
       connectWebSocket(() => {
         subscribeToTopic(`/user/${user.id}/private`, onPrivateMessage)
@@ -305,7 +307,11 @@ const Message = () => {
       if(userName && loginUser){
         let avatarUrl: string | null = userAvatar
         if(isAvatarChange){
-          avatarUrl =await imageUpload({ image: userAvatar })
+          try{
+            avatarUrl = await imageUpload({ image: userAvatar })
+          }catch (e: any){
+            toast.error(e.response.data)
+          }
         }
         if(avatarUrl){
           const user : User ={
@@ -315,6 +321,13 @@ const Message = () => {
             email: loginUser?.email,
             password: password,
             id: loginUser.id
+          }
+          try{
+            const updateUser : User =  await updateProfile(user)
+            localStorage.setItem('user', JSON.stringify(updateUser))
+            setLoginUser(updateUser)
+          }catch (e:any){
+            toast.error(e.response.data)
           }
         }
       }
@@ -326,14 +339,20 @@ const Message = () => {
     }
   }
 
+  const handleOpenModal=()=>{
+    setOpenModal(prevState => !prevState)
+  }
+
   const handleExitClick=()=>{
-    setPassword('')
-    // @ts-ignore
-    setUserAvatar(loginUser?.avatar)
-    setPassword('')
-    setRetypePass('')
-    setUserName('')
-    setUpdateRequest(false)
+    if(loginUser){
+      setPassword(loginUser.password)
+      // @ts-ignore
+      setUserAvatar(loginUser.avatar)
+      setRetypePass(loginUser.password)
+      setUserName(loginUser.userName)
+      setUpdateRequest(false)
+    }
+
   }
   // @ts-ignore
   return (
@@ -345,7 +364,9 @@ const Message = () => {
         {/*current user*/}
         <div className={`border-b shadow sticky inset-0 z-20 bg-inherit pl-3 pb-3`}>
           <div className={`flex gap-4 pt-4 pl-0 pb-3`}>
-            <div className={`flex gap-4 rounded-full cursor-pointer`}>
+            <div
+              onClick={handleOpenModal}
+              className={`flex gap-4 rounded-full cursor-pointer`}>
               <img className={`w-[80px] rounded-full `} src={loginUser?.avatar} alt={'avatar'} />
               <div className={`flex items-center justify-start truncate`}>
                 <p className={`font-bold text-[18px]`}>{loginUser ? loginUser.userName : ''}</p>
@@ -517,7 +538,8 @@ const Message = () => {
       </div>
 
       <div
-        className={`backdrop-blur-sm bg-black bg-opacity-60 flex overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-center w-full h-full max-h-full `}
+        onClick={()=>setOpenModal(false)}
+        className={`backdrop-blur-sm bg-black bg-opacity-60 flex overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-center w-full h-full max-h-full ${openModal ? 'block': 'hidden'}`}
       >
         <div
           onClick={(event) => handleModalClicks(event)}
@@ -624,6 +646,7 @@ const Message = () => {
                   {updateRequest ? (
                     <div className={`flex justify-end gap-4 px-3`}>
                       <button
+                        onClick={handleUpdateProfile}
                         className={`p-2 rounded bg-red-500 text-white font-bold hover:bg-red-600`}
                       >
                         Confirm

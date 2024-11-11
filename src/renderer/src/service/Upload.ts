@@ -22,7 +22,6 @@ export const imageUpload = async ({image}: Props): Promise<string | null> => {
     const response = await axios.post(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, formData);
     url = response.data.secure_url;
   } catch (error) {
-    console.error('Error uploading image:', error);
     throw error;
   }
   return url;
