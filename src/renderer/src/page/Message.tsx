@@ -236,6 +236,7 @@ const Message = () => {
       const user: User = JSON.parse(rawUser)
       setLoginUser(user)
       setCurrentUserId(user.id)
+      setUserAvatar(user.avatar)
       getAllConversation(user.id)
       setIsGoogleAccount(user.id.startsWith("google_"))
       connectWebSocket(() => {

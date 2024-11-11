@@ -1,7 +1,8 @@
 import axios from 'axios'
+const backendIP = import.meta.env.VITE_BACKEND_IP
 
 export const instance = axios.create({
-  baseURL: 'http://18.142.115.156:8080',
+  baseURL: `http://${backendIP}:8080`,
   headers: {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*'
