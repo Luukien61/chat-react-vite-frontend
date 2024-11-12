@@ -14,7 +14,7 @@ import {
   createConversation,
   getAllConversations,
   getMessagesByConversationId,
-  getParticipant,
+  getParticipant, getUserProfile,
   searchConversationByUserIds,
   searchUserByEmail,
   updateProfile,
@@ -232,16 +232,24 @@ const Message = () => {
 
   useEffect(() => {
     const rawUser = localStorage.getItem('user')
+    const getLogInUser=async (userId: string)=>{
+      try{
+        const user : User = await getUserProfile(userId)
+        setLoginUser(user)
+        setCurrentUserId(user.id)
+        setUserAvatar(user.avatar)
+        getAllConversation(user.id)
+        setIsGoogleAccount(user.id.startsWith("google_"))
+        connectWebSocket(() => {
+          subscribeToTopic(`/user/${user.id}/private`, onPrivateMessage)
+        })
+      }catch (e: any){
+        toast.error(e.response.data)
+      }
+    }
     if (rawUser) {
       const user: User = JSON.parse(rawUser)
-      setLoginUser(user)
-      setCurrentUserId(user.id)
-      setUserAvatar(user.avatar)
-      getAllConversation(user.id)
-      setIsGoogleAccount(user.id.startsWith("google_"))
-      connectWebSocket(() => {
-        subscribeToTopic(`/user/${user.id}/private`, onPrivateMessage)
-      })
+      getLogInUser(user.id)
     } else {
       navigate('/login', { replace: true })
     }
