@@ -4,10 +4,10 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselPrevious,
-  CarouselNext
+  CarouselNext,
+  CarouselPrevious
 } from '@renderer/components/ui/carousel'
-import { CardContent, Card } from '@renderer/components/ui/card'
+import { Card, CardContent } from '@renderer/components/ui/card'
 import { SlCamera } from 'react-icons/sl'
 import {
   ConversationRequest,
