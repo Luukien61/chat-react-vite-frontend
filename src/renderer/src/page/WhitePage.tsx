@@ -1,12 +1,20 @@
-const WhitePage = () => {
-  const location = window.location.href // Để lấy đường dẫn hiện tại
-  const newUrl = location.replace('http://localhost:5173/google', 'http://localhost:5173/#/google')
-  window.location.replace(newUrl)
-  // useEffect(() => {
-  //   navigate(newUrl)
-  // },[newUrl])
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-  return <div></div>
+const WhitePage = () => {
+  const [code] = useState<string>()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    window.api.onUpdateCode((value) => {
+      navigate(`/google?code=${value}`)
+    })
+  },[])
+
+
+  return <div>
+    {code}
+  </div>
 }
 
 export default WhitePage

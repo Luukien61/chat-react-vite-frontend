@@ -9,12 +9,11 @@ export function App() {
   return (
     <HashRouter>
       <Routes>
-
         <Route path="/message" element={<Message />} />
         <Route path="/login/*" element={<LogIn />} />
         <Route path="/signup" element={<Signup />} />
         <Route path={'/google'} element={<GoogleCode />} />
-        <Route path={'*'} element={<WhitePage />} />
+        <Route path={'/white-page'} element={<WhitePage />} />
       </Routes>
     </HashRouter>
   )

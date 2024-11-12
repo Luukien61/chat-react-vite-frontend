@@ -2,7 +2,8 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-
+import express, { Request, Response } from 'express';
+let code ='abc'
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -45,6 +46,23 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'), {hash: "message"})
   }
+
+  function updateCode(newCode: string) {
+    code = newCode
+    mainWindow.webContents.send('update-counter', newCode)
+  }
+
+  const appEx = express()
+  appEx.listen(3000, () => console.log('Listening on http://localhost:3000'));
+
+  appEx.get('/google', async (req: Request, res: Response) => {
+    const authCode = req.query.code as string;
+    if (authCode) {
+      res.send('Đăng nhập thành công! Bạn có thể đóng trình duyệt này.')
+      updateCode(authCode)
+      console.log('Authorization Code:', code)
+    }
+  })
 }
 
 // This method will be called when Electron has finished
@@ -63,6 +81,7 @@ app.whenReady().then(() => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+  ipcMain.handle('get-code', () => 'Authorized code' + code)
 
   createWindow()
 

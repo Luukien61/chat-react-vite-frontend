@@ -13,7 +13,7 @@ export const googleLogin = () => {
   const clientId: string = import.meta.env.VITE_GOOGLE_CLIENT_ID
   const redirectUri: string = import.meta.env.VITE_GOOGLE_REDIRECT_URL
   const scope: string = import.meta.env.VITE_GOOGLE_SCOPE
-  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`
+  return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`
 }
 const LogIn = () => {
   const [email, setEmail] = useState('')
@@ -47,9 +47,11 @@ const LogIn = () => {
     }
   }
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     localStorage.setItem('action', 'login')
-    googleLogin()
+    const url = googleLogin()
+    window.open(url, '_blank')
+    navigate('/white-page')
   }
 
   return (
