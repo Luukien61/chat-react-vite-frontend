@@ -1,20 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const WhitePage = () => {
-  const [code] = useState<string>()
   const navigate = useNavigate()
 
   useEffect(() => {
     window.api.onUpdateCode((value) => {
       navigate(`/google?code=${value}`)
     })
-  },[])
+  }, [])
 
-
-  return <div>
-    {code}
-  </div>
+  return <div></div>
 }
 
 export default WhitePage

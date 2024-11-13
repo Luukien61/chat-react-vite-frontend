@@ -255,7 +255,6 @@ const Message = () => {
     } else {
       navigate('/login', { replace: true })
     }
-    return () => {}
   }, [])
 
   const handleClickQuickMessage = async (conversationId: string, participantId: string) => {
@@ -355,6 +354,7 @@ const Message = () => {
   }
   const handleLogOut = () => {
     localStorage.removeItem('user')
+    localStorage.clear()
     navigate('/login')
   }
   const handleModalClicks = useCallback((event: React.MouseEvent) => {
@@ -443,10 +443,10 @@ const Message = () => {
   // @ts-ignore
   // @ts-ignore
   return (
-    <div className={`flex text-[16px] overflow-hidden h-full`}>
+    <div className={`flex  text-[16px] overflow-hidden h-full`}>
       {/*nav*/}
       <div
-        className={`w-[25%] min-w-[300px] relative min-h-screen overflow-hidden z-10 bg-white border-r border-r-gray-400 border-gray  overflow-y-auto `}
+        className={`w-[25%] px-3 min-w-[300px] relative min-h-screen overflow-hidden z-10 bg-white border-r border-r-gray-400 border-gray  overflow-y-auto `}
       >
         {/*current user*/}
         <div className={`border-b shadow sticky inset-0 z-20 bg-inherit pl-3 pb-3`}>

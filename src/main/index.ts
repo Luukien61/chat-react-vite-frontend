@@ -60,7 +60,6 @@ function createWindow(): void {
     if (authCode) {
       res.send('Đăng nhập thành công! Bạn có thể đóng trình duyệt này.')
       updateCode(authCode)
-      console.log('Authorization Code:', code)
     }
   })
 }

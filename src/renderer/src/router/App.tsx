@@ -13,7 +13,7 @@ export function App() {
         <Route path="/login/*" element={<LogIn />} />
         <Route path="/signup" element={<Signup />} />
         <Route path={'/google'} element={<GoogleCode />} />
-        <Route path={'/white-page'} element={<WhitePage />} />
+        <Route path={'*'} element={<WhitePage />} />
       </Routes>
     </HashRouter>
   )
