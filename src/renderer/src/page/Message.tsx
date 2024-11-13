@@ -14,7 +14,8 @@ import {
   createConversation,
   getAllConversations,
   getMessagesByConversationId,
-  getParticipant, getUserProfile,
+  getParticipant,
+  getUserProfile,
   searchConversationByUserIds,
   searchUserByEmail,
   updateProfile,
@@ -26,7 +27,7 @@ import { debounce } from 'lodash'
 import Autoplay from 'embla-carousel-autoplay'
 
 import {
-  ChatMessage,
+  ChatMessage, client,
   connectWebSocket,
   Conversation,
   Participant,
@@ -45,6 +46,7 @@ import zalo1 from '@renderer/assets/quick-message-onboard-1.png'
 import zalo2 from '@renderer/assets/inapp-welcome-screen-03.png'
 // @ts-ignore
 import zalo3 from '@renderer/assets/inapp-welcome-screen-04.jpg'
+import VideoCall from '@renderer/components/VideoCall'
 
 type QuickMessage = {
   id: string
@@ -100,7 +102,7 @@ const Message = () => {
   const [userName, setUserName] = useState<string>('')
   const [userAvatar, setUserAvatar] = useState<string>('')
   const [isAvatarChange, setIsAvatarChange] = useState<boolean>(false)
-  const [isGoogleAccount,setIsGoogleAccount] = useState<boolean>(false)
+  const [isGoogleAccount, setIsGoogleAccount] = useState<boolean>(false)
 
   const debouncedHandleSearching = useRef(
     debounce(async (value: string, userId: string) => {
@@ -232,18 +234,18 @@ const Message = () => {
 
   useEffect(() => {
     const rawUser = localStorage.getItem('user')
-    const getLogInUser=async (userId: string)=>{
-      try{
-        const user : User = await getUserProfile(userId)
+    const getLogInUser = async (userId: string) => {
+      try {
+        const user: User = await getUserProfile(userId)
         setLoginUser(user)
         setCurrentUserId(user.id)
         setUserAvatar(user.avatar)
         getAllConversation(user.id)
-        setIsGoogleAccount(user.id.startsWith("google_"))
+        setIsGoogleAccount(user.id.startsWith('google_'))
         connectWebSocket(() => {
           subscribeToTopic(`/user/${user.id}/private`, onPrivateMessage)
         })
-      }catch (e: any){
+      } catch (e: any) {
         toast.error(e.response.data)
       }
     }
@@ -373,7 +375,7 @@ const Message = () => {
   }
 
   const handleUpdateProfile = async () => {
-    if ((password && retypePass && password === retypePass)|| isGoogleAccount) {
+    if ((password && retypePass && password === retypePass) || isGoogleAccount) {
       if (userName && loginUser) {
         let avatarUrl: string | null = userAvatar
         if (isAvatarChange) {
@@ -424,7 +426,7 @@ const Message = () => {
     }
   }
 
-  const handleCloseModal=()=>{
+  const handleCloseModal = () => {
     setOpenModal(false)
     handleExitClick()
   }
@@ -438,6 +440,7 @@ const Message = () => {
       setUpdateRequest(true)
     }
   }
+  // @ts-ignore
   // @ts-ignore
   return (
     <div className={`flex text-[16px] overflow-hidden h-full`}>
@@ -543,6 +546,14 @@ const Message = () => {
               src={currentRecipient.avatar}
             />
             <p className={`font-bold`}>{currentRecipient.name}</p>
+            <div className={`flex-1 flex justify-end`}>
+              <VideoCall
+                userName={currentRecipient.name}
+                client={client}
+                userId={currentUserId}
+                targetUserId={currentRecipient && currentRecipient.id}
+              />
+            </div>
           </div>
           {/*content*/}
           <div className={`flex-1 overflow-hidden relative h-full w-full`}>

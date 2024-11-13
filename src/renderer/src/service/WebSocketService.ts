@@ -24,7 +24,7 @@ export type Conversation = {
   type: string
 }
 
-let client: Client | null = null
+export let client: Client | null = null
 const backendIP= import.meta.env.VITE_BACKEND_IP
 // Hàm kết nối WebSocket
 export const connectWebSocket = (onConnected: () => void): void => {
@@ -66,6 +66,22 @@ export const sendMessage = (destination: string, message: ChatMessage): void => 
   }
 }
 
+// types/webrtc.ts
+export interface RTCSignal {
+  type: 'offer' | 'answer' | 'ice-candidate' | 'call-rejected';
+  targetUserId: string;
+  senderUserId: string;
+  payload: RTCSessionDescriptionInit | RTCIceCandidateInit | null;
+}
+
+export interface VideoCallProps {
+  userId: string;
+  userName: string;
+  targetUserId: string;
+  client: Client |null;  // từ @stomp/stompjs
+}
+
+
 // Hàm đăng ký nhận tin nhắn từ một endpoint cụ thể
 export const subscribeToTopic = (
   destination: string,
@@ -78,3 +94,7 @@ export const subscribeToTopic = (
   }
   return undefined
 }
+
+
+
+
