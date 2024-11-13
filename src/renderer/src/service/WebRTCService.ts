@@ -27,13 +27,17 @@ export class WebRTCService {
     type: RTCSignal['type'],
     payload: RTCSignal['payload'],
     targetUserId: string,
+    senderName: string,
+    senderAvatar: string,
   ): void {
     if (this.client.connected) {
       const signal: RTCSignal = {
-        type,
-        targetUserId,
+        type:type,
+        targetUserId:targetUserId,
         senderUserId: this.userId,
-        payload
+        payload:payload,
+        senderName: senderName,
+        senderAvatar: senderAvatar,
       };
 
       this.client.publish({

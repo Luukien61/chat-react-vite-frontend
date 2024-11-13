@@ -6,7 +6,7 @@ import { WebRTCService } from '@renderer/service/WebRTCService'
 import { delay } from '@renderer/page/GoogleCode'
 import { toast } from 'react-toastify'
 
-const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,userName}) => {
+const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,userName, senderName, senderAvatar}) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   // @ts-ignore
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
@@ -20,6 +20,8 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
   const localStreamRef = useRef<MediaStream | null>(null)
   const [, setIsCalling] = useState<boolean>(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [callerName, setCallerName] = useState<string>('')
+  const [callerAvatar, setCallerAvatar] = useState<string>('')
 
   useEffect(() => {
     if(client){
@@ -33,6 +35,8 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
       switch (signal.type) {
         case 'offer':
           setSignal(signal)
+          setCallerAvatar(signal.senderAvatar)
+          setCallerName(signal.senderName)
           setComingCall(true)
           break
 
@@ -79,12 +83,12 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
       )
       const answer = await peerConnection.current.createAnswer()
       await peerConnection.current.setLocalDescription(answer)
-      webRTCService.current?.sendSignal('answer', answer, targetUserId)
+      webRTCService.current?.sendSignal('answer', answer, targetUserId,senderName, senderAvatar)
     }
   }
 
   const rejectCall = () => {
-    webRTCService.current?.sendSignal('call-rejected', {}, targetUserId)
+    webRTCService.current?.sendSignal('call-rejected', {}, targetUserId, senderName, senderAvatar)
     setComingCall(false)
     setStart(false)
   }
@@ -123,7 +127,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
 
       peerConnection.current.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
         if (event.candidate) {
-          webRTCService.current?.sendSignal('ice-candidate', event.candidate.toJSON(), targetUserId)
+          webRTCService.current?.sendSignal('ice-candidate', event.candidate.toJSON(), targetUserId,senderName, senderAvatar)
         }
       }
 
@@ -143,7 +147,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
       if (!peerConnection.current) return
       const offer = await peerConnection.current.createOffer()
       await peerConnection.current.setLocalDescription(offer)
-      webRTCService.current?.sendSignal('offer', offer, targetUserId)
+      webRTCService.current?.sendSignal('offer', offer, targetUserId, senderName, senderAvatar)
       initiateCall()
     } catch (err) {
       console.error('Error creating offer:', err)
@@ -151,7 +155,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
   }
 
   const stopCall = async (): Promise<void> => {
-    webRTCService.current?.sendSignal('call-rejected', {}, targetUserId)
+    webRTCService.current?.sendSignal('call-rejected', {}, targetUserId,senderName, senderAvatar)
     await delay(200)
     clearVideoCall()
   }
@@ -232,7 +236,10 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
       {!start && comingCall && (
         <div className={`backdrop-blur-sm bg-black px-6 gap-4 bg-opacity-60 flex flex-col overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-center w-full h-full max-h-full`}
         >
-
+          <div className={`flex flex-col gap-4`}>
+            <img src={callerAvatar} className={`w-64 rounded-full aspect-square object-cover`}  alt={callerName}/>
+            <div className={`flex items-center justify-center text-[28px] text-white font-bold`}>{callerName}</div>
+          </div>
           <div className={`flex gap-4`}>
             <button
               onClick={acceptCall}

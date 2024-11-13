@@ -548,6 +548,8 @@ const Message = () => {
             <p className={`font-bold`}>{currentRecipient.name}</p>
             <div className={`flex-1 flex justify-end`}>
               <VideoCall
+                senderName={loginUser? loginUser.userName : ''}
+                senderAvatar={loginUser ? loginUser.avatar : ''}
                 userName={currentRecipient.name}
                 client={client}
                 userId={currentUserId}

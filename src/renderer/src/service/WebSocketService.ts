@@ -71,6 +71,8 @@ export interface RTCSignal {
   type: 'offer' | 'answer' | 'ice-candidate' | 'call-rejected';
   targetUserId: string;
   senderUserId: string;
+  senderName: string;
+  senderAvatar: string;
   payload: RTCSessionDescriptionInit | RTCIceCandidateInit | null;
 }
 
@@ -78,6 +80,8 @@ export interface VideoCallProps {
   userId: string;
   userName: string;
   targetUserId: string;
+  senderName: string;
+  senderAvatar: string;
   client: Client |null;  // từ @stomp/stompjs
 }
 
