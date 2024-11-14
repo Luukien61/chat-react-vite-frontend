@@ -136,17 +136,9 @@ const VideoCall: React.FC<VideoCallProps> = ({
         iceServers: [
           {
             urls: [
-              'stun:stun1.l.google.com:19302',
-              'stun:stun2.l.google.com:19302',
-              'stun:stun3.l.google.com:19302',
-              'stun:stun4.l.google.com:19302'
-            ]
-          },
-          {
-            urls: [
-              'turn:18.142.115.156:3478',
-              'turn:18.142.115.156:3478?transport=udp',
-              'turn:18.142.115.156:3478?transport=tcp'
+              'turn:18.142.115.156:443',
+              'turn:18.142.115.156:443?transport=udp',
+              'turn:18.142.115.156:443?transport=tcp'
             ],
             username: 'luukien',
             credential: '123456'
@@ -169,6 +161,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
 
       peerConnection.current.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
         if (event.candidate) {
+          console.log("ICE Candidate:", event.candidate);
           webRTCService.current?.sendSignal(
             'ice-candidate',
             event.candidate.toJSON(),
@@ -177,11 +170,27 @@ const VideoCall: React.FC<VideoCallProps> = ({
             senderAvatar
           )
         }
+        else {
+          console.log("All ICE candidates have been sent.");
+        }
       }
 
+
+
       peerConnection.current.oniceconnectionstatechange = () => {
-        console.log(peerConnection.current?.iceConnectionState === 'connected')
-      }
+        console.log("ICE connection state changed:", peerConnection.current?.iceConnectionState);
+        if (peerConnection.current?.iceConnectionState === 'failed') {
+          console.log("ICE connection failed, troubleshooting required.");
+          // Thực hiện các bước xử lý khi kết nối thất bại
+        } else if (peerConnection.current?.iceConnectionState === 'disconnected') {
+          console.log("ICE connection disconnected, checking network issues.");
+          // Kiểm tra các vấn đề mạng
+        } else if (peerConnection.current?.iceConnectionState === 'connected') {
+          console.log("ICE connection established and connected.");
+          // Kết nối thành công
+        }
+      };
+
     } catch (err) {
       toast.error('Error accessing media devices:' + err)
     }
