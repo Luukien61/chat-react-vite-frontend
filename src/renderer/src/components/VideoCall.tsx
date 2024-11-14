@@ -6,7 +6,14 @@ import { WebRTCService } from '@renderer/service/WebRTCService'
 import { delay } from '@renderer/page/GoogleCode'
 import { toast } from 'react-toastify'
 
-const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,userName, senderName, senderAvatar}) => {
+const VideoCall: React.FC<VideoCallProps> = ({
+  userId,
+  targetUserId,
+  client,
+  userName,
+  senderName,
+  senderAvatar
+}) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   // @ts-ignore
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
@@ -22,9 +29,11 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [callerName, setCallerName] = useState<string>('')
   const [callerAvatar, setCallerAvatar] = useState<string>('')
+  const [muteVideo, setMuteVideo] = useState<boolean>(false)
+  const [muteAudio, setMuteAudio] = useState<boolean>(false)
 
   useEffect(() => {
-    if(client){
+    if (client) {
       webRTCService.current = new WebRTCService(client, userId)
       webRTCService.current.setSignalHandler(handleWebRTCSignal)
     }
@@ -42,8 +51,8 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
 
         case 'answer':
           if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
+            clearTimeout(timeoutRef.current)
+            timeoutRef.current = null
           }
           if (!peerConnection.current) return
           await peerConnection.current.setRemoteDescription(
@@ -62,8 +71,8 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
           break
         case 'call-rejected':
           if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
+            clearTimeout(timeoutRef.current)
+            timeoutRef.current = null
           }
           clearVideoCall()
           break
@@ -83,7 +92,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
       )
       const answer = await peerConnection.current.createAnswer()
       await peerConnection.current.setLocalDescription(answer)
-      webRTCService.current?.sendSignal('answer', answer, targetUserId,senderName, senderAvatar)
+      webRTCService.current?.sendSignal('answer', answer, targetUserId, senderName, senderAvatar)
     }
   }
 
@@ -127,7 +136,13 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
 
       peerConnection.current.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
         if (event.candidate) {
-          webRTCService.current?.sendSignal('ice-candidate', event.candidate.toJSON(), targetUserId,senderName, senderAvatar)
+          webRTCService.current?.sendSignal(
+            'ice-candidate',
+            event.candidate.toJSON(),
+            targetUserId,
+            senderName,
+            senderAvatar
+          )
         }
       }
 
@@ -135,12 +150,13 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
         console.log(peerConnection.current?.iceConnectionState === 'connected')
       }
     } catch (err) {
-      console.error('Error accessing media devices:', err)
+      toast.error('Error accessing media devices:' + err)
     }
   }
 
   const startCall = async (): Promise<void> => {
     setStart(true)
+    toast.success('Calling...')
     await delay(100)
     try {
       await initLocalStream()
@@ -155,7 +171,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
   }
 
   const stopCall = async (): Promise<void> => {
-    webRTCService.current?.sendSignal('call-rejected', {}, targetUserId,senderName, senderAvatar)
+    webRTCService.current?.sendSignal('call-rejected', {}, targetUserId, senderName, senderAvatar)
     await delay(200)
     clearVideoCall()
   }
@@ -165,14 +181,14 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
 
     // Bắt đầu timeout 15 giây
     timeoutRef.current = setTimeout(() => {
-      toast.error("The user does not reply",{delay : 3000});
+      toast.error('The user does not reply')
       handleCallTimeout()
     }, 10000) // 15 giây
   }
 
   const handleCallTimeout = () => {
-    stopTime();
-  };
+    stopTime()
+  }
 
   const stopTime = () => {
     if (timeoutRef.current) {
@@ -210,6 +226,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
   }
 
   const toggleAudio = (): void => {
+    setMuteAudio((prevState) => !prevState)
     const audioTrack = localStream?.getAudioTracks()[0]
     if (audioTrack) {
       audioTrack.enabled = !audioTrack.enabled
@@ -217,6 +234,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
   }
 
   const toggleVideo = (): void => {
+    setMuteVideo((prevState) => !prevState)
     const videoTrack = localStream?.getVideoTracks()[0]
     if (videoTrack) {
       videoTrack.enabled = !videoTrack.enabled
@@ -234,11 +252,18 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
         </button>
       )}
       {!start && comingCall && (
-        <div className={`backdrop-blur-sm bg-black px-6 gap-4 bg-opacity-60 flex flex-col overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-center w-full h-full max-h-full`}
+        <div
+          className={`backdrop-blur-sm bg-black px-6 gap-4 bg-opacity-60 flex flex-col overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-center w-full h-full max-h-full`}
         >
           <div className={`flex flex-col gap-4`}>
-            <img src={callerAvatar} className={`w-64 rounded-full aspect-square object-cover`}  alt={callerName}/>
-            <div className={`flex items-center justify-center text-[28px] text-white font-bold`}>{callerName}</div>
+            <img
+              src={callerAvatar}
+              className={`w-64 rounded-full aspect-square object-cover`}
+              alt={callerName}
+            />
+            <div className={`flex items-center justify-center text-[28px] text-white font-bold`}>
+              {callerName}
+            </div>
           </div>
           <div className={`flex gap-4`}>
             <button
@@ -299,16 +324,22 @@ const VideoCall: React.FC<VideoCallProps> = ({ userId, targetUserId, client ,use
               </button>
               <button
                 onClick={toggleAudio}
-                className="p-3 bg-gray-600 text-white rounded-full hover:bg-gray-700"
+                className="p-3 bg-gray-600 w-fit text-white relative rounded-full hover:bg-gray-700"
               >
                 <PiMicrophone className="w-5 h-5" />
+                {muteAudio && (
+                  <div className={`w-full h-[2px] bg-white absolute top-1/2 left-0 rotate-45`} />
+                )}
               </button>
 
               <button
                 onClick={toggleVideo}
-                className="p-3 bg-gray-600 text-white rounded-full hover:bg-gray-700"
+                className="p-3 bg-gray-600 text-white relative rounded-full hover:bg-gray-700"
               >
                 <VideoIcon className="w-5 h-5" />
+                {muteVideo && (
+                  <div className={`w-full h-[2px] bg-white absolute top-1/2 left-0 rotate-45`} />
+                )}
               </button>
             </>
           </div>

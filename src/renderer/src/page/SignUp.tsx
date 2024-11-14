@@ -114,7 +114,9 @@ const Signup = () => {
 
   const handleGoogleSignUp = async () => {
     localStorage.setItem('action', 'signup')
-    googleLogin()
+    const url = googleLogin()
+    window.open(url, '_blank')
+    navigate('/google')
   }
 
   return (

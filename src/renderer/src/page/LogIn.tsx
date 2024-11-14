@@ -8,6 +8,7 @@ import appLogo from '../assets/app-icon.jpg'
 import googleLogo from '../assets/google.png'
 import { toast, ToastContainer } from 'react-toastify'
 import { login, LoginRequest, User } from '@renderer/axios/Request'
+import { delay } from '@renderer/page/GoogleCode'
 
 export const googleLogin = () => {
   const clientId: string = import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -38,6 +39,7 @@ const LogIn = () => {
       try {
         const result: User = await login(loginRequest)
         localStorage.setItem('user', JSON.stringify(result))
+        delay(100)
         navigate('/message')
       } catch (err: any) {
         toast.error(err.response.data)
@@ -51,7 +53,7 @@ const LogIn = () => {
     localStorage.setItem('action', 'login')
     const url = googleLogin()
     window.open(url, '_blank')
-    navigate('/white-page')
+    navigate('/google')
   }
 
   return (

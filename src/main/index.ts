@@ -1,9 +1,10 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import express, { Request, Response } from 'express';
-let code ='abc'
+import express, { Request, Response } from 'express'
+
+let code = 'abc'
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -15,9 +16,9 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
-      allowRunningInsecureContent:true,
-      webSecurity:false,
-      images : true
+      allowRunningInsecureContent: true,
+      webSecurity: false,
+      images: true
     }
   })
 
@@ -42,9 +43,9 @@ function createWindow(): void {
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']+'/#/message')
+    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '/#/message')
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'), {hash: "message"})
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'message' })
   }
 
   function updateCode(newCode: string) {
@@ -53,14 +54,13 @@ function createWindow(): void {
   }
 
   const appEx = express()
-  appEx.listen(3000, () => console.log('Listening on http://localhost:3000'));
+  appEx.listen(3000, () => console.log('Listening on http://localhost:3000'))
 
   appEx.get('/google', async (req: Request, res: Response) => {
-    const authCode = req.query.code as string;
+    const authCode = req.query.code as string
     if (authCode) {
       res.send('Đăng nhập thành công! Bạn có thể đóng trình duyệt này.')
       updateCode(authCode)
-      console.log('Authorization Code:', code)
     }
   })
 }
