@@ -123,18 +123,19 @@ const Message = () => {
     debouncedHandleSearching(value, currentUserId)
   }
 
-  const onPrivateMessage = useCallback((payload: ChatMessage) => {
+  const onPrivateMessage = (payload: ChatMessage) => {
+    updateAllQuickMessage(payload)
     setPrivateChats((prevChats) => {
       const isDup = prevChats.some((item) => item.id === payload.id)
-      if (!isDup) {
+
+      if (!isDup && prevChats[0] && payload.conversationId === prevChats[0].conversationId) {
         const newChats = [...prevChats, payload]
-        updateQuickMessage(payload)
         handleScroll()
         return newChats
       }
       return prevChats
     })
-  }, [])
+  }
 
   const handleScroll = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'instant' })
@@ -188,33 +189,43 @@ const Message = () => {
     }
   }
 
-  const updateQuickMessage = useCallback((payload: ChatMessage) => {
-    setAllQuickMessages((prevState) => {
-      prevState.forEach((message) => {
-        if (message.conversationId == payload.conversationId) {
-          message.text = payload.content
-          message.time = payload.timestamp
-          message.type = payload.type
-        }
-      })
-      // @ts-ignore
-      return prevState.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-    })
-  }, [])
+  // const updateQuickMessage = useCallback((payload: ChatMessage) => {
+  //   setAllQuickMessages((prevState) => {
+  //     prevState.forEach((message) => {
+  //       if (message.conversationId == payload.conversationId) {
+  //         message.text = payload.content
+  //         message.time = payload.timestamp
+  //         message.type = payload.type
+  //       }
+  //     })
+  //     // @ts-ignore
+  //     return prevState.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+  //   })
+  // }, [])
 
   const updateAllQuickMessage = (payload: ChatMessage) => {
-    allQuickMessages.forEach((message) => {
-      if (message.conversationId == payload.conversationId) {
-        message.text = payload.content
-        message.time = payload.timestamp
-        message.type = payload.type
-      }
-    })
-    // @ts-ignore
-    const updateQuickMessage = allQuickMessages.sort(
-      (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
-    )
-    setAllQuickMessages(updateQuickMessage)
+    setAllQuickMessages((prevState) => {
+      // Tạo một bản sao mới của prevState bằng cách map qua từng phần tử
+      const updatedMessages = prevState.map((message) => {
+        if (message.conversationId === payload.conversationId) {
+          // Trả về một object mới với các thuộc tính đã được cập nhật
+          return {
+            ...message,
+            text: payload.content,
+            time: payload.timestamp,
+            type: payload.type
+          };
+        }
+        // Trả về phần tử ban đầu nếu không có thay đổi
+        return message;
+      });
+
+      console.log("Updated Messages: ", updatedMessages);
+
+      // Sắp xếp lại mảng và trả về mảng mới
+      return updatedMessages.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+    });
+
   }
 
   const getMessageByConversationId = async (conversationId: string) => {
