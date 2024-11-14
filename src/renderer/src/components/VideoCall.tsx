@@ -15,7 +15,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
   senderAvatar
 }) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
-  const targetUserIds  = useRef<string>(targetUserId)
+  const targetUserIds = useRef<string>(targetUserId)
   // @ts-ignore
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [start, setStart] = useState<boolean>(false)
@@ -45,7 +45,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
       switch (signal.type) {
         case 'offer':
           setSignal(signal)
-          targetUserIds.current=signal.senderUserId
+          targetUserIds.current = signal.senderUserId
           setCallerAvatar(signal.senderAvatar)
           setCallerName(signal.senderName)
           setComingCall(true)
@@ -57,7 +57,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
             timeoutRef.current = null
           }
           if (!peerConnection.current) return
-          console.log("state", peerConnection.current.signalingState)
+          console.log('state', peerConnection.current.signalingState)
           await peerConnection.current.setRemoteDescription(
             new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit)
           )
@@ -95,12 +95,24 @@ const VideoCall: React.FC<VideoCallProps> = ({
       )
       const answer = await peerConnection.current.createAnswer()
       await peerConnection.current.setLocalDescription(answer)
-      webRTCService.current?.sendSignal('answer', answer, targetUserIds.current, senderName, senderAvatar)
+      webRTCService.current?.sendSignal(
+        'answer',
+        answer,
+        targetUserIds.current,
+        senderName,
+        senderAvatar
+      )
     }
   }
 
   const rejectCall = () => {
-    webRTCService.current?.sendSignal('call-rejected', {}, targetUserIds.current, senderName, senderAvatar)
+    webRTCService.current?.sendSignal(
+      'call-rejected',
+      {},
+      targetUserIds.current,
+      senderName,
+      senderAvatar
+    )
     setComingCall(false)
     setStart(false)
   }
@@ -121,14 +133,25 @@ const VideoCall: React.FC<VideoCallProps> = ({
       }
 
       peerConnection.current = new RTCPeerConnection({
-        iceServers: [{
-          urls: [
-            'stun:stun1.l.google.com:19302',
-            'stun:stun2.l.google.com:19302',
-            'stun:stun3.l.google.com:19302',
-            'stun:stun4.l.google.com:19302'
-          ]
-        },]
+        iceServers: [
+          {
+            urls: [
+              'stun:stun1.l.google.com:19302',
+              'stun:stun2.l.google.com:19302',
+              'stun:stun3.l.google.com:19302',
+              'stun:stun4.l.google.com:19302'
+            ]
+          },
+          {
+            urls: [
+              'turn:18.142.115.156:3478',
+              'turn:18.142.115.156:3478?transport=udp',
+              'turn:18.142.115.156:3478?transport=tcp'
+            ],
+            username: 'luukien',
+            credential: '123456'
+          }
+        ]
       })
 
       stream.getTracks().forEach((track) => {
@@ -173,7 +196,13 @@ const VideoCall: React.FC<VideoCallProps> = ({
       if (!peerConnection.current) return
       const offer = await peerConnection.current.createOffer()
       await peerConnection.current.setLocalDescription(offer)
-      webRTCService.current?.sendSignal('offer', offer, targetUserIds.current, senderName, senderAvatar)
+      webRTCService.current?.sendSignal(
+        'offer',
+        offer,
+        targetUserIds.current,
+        senderName,
+        senderAvatar
+      )
       initiateCall()
     } catch (err) {
       console.error('Error creating offer:', err)
@@ -181,7 +210,13 @@ const VideoCall: React.FC<VideoCallProps> = ({
   }
 
   const stopCall = async (): Promise<void> => {
-    webRTCService.current?.sendSignal('call-rejected', {}, targetUserIds.current, senderName, senderAvatar)
+    webRTCService.current?.sendSignal(
+      'call-rejected',
+      {},
+      targetUserIds.current,
+      senderName,
+      senderAvatar
+    )
     await delay(200)
     clearVideoCall()
   }
