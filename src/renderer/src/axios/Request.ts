@@ -1,4 +1,6 @@
 import { instance } from '@renderer/axios/Config'
+import axios from 'axios'
+import { ChatMessage } from '@renderer/service/WebSocketService'
 
 export const getAllConversations = async (id: string) => {
   return await instance.get(`/chat/all/${id}`).then((response) => response.data)
@@ -65,22 +67,40 @@ export const searchConversationByUserIds = async (user1Id: string, user2Id: stri
     .then((response) => response.data)
 }
 export type ConversationRequest = {
-  id: string,
-  senderId: string,
-  recipientId: string,
-  type: string,
-  message: string,
-  createdAt: Date,
+  id: string
+  senderId: string
+  recipientId: string
+  type: string
+  message: string
+  createdAt: Date
 }
 
 export const createConversation = async (request: ConversationRequest) => {
   return await instance.post(`/conversation/private`, request).then((response) => response.data)
 }
 
-export const updateProfile =async (user: User) => {
+export const updateProfile = async (user: User) => {
   return await instance.post(`/user/update`, user).then((response) => response.data)
 }
 
 export const getUserProfile = async (userId: string) => {
   return await instance.get(`/user/profile/${userId}`).then((response) => response.data)
+}
+
+export const sendVoice = async (formData) => {
+  return await instance
+    .post(`/voice`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    .then((response) => response.data)
+}
+const voiceServer = import.meta.env.VITE_VOICE_SERVER_IP
+export const getAudioCaption = async (body) => {
+  return await axios.post(`${voiceServer}/transcribe`, body).then((response) => response.data)
+}
+
+export const updateMessage=async (message: ChatMessage) => {
+  return await instance.put(`/message`, message).then((response) => response.data)
 }

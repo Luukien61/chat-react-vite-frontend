@@ -13,7 +13,8 @@ export type ChatMessage = {
   conversationId: string
   content: string
   timestamp: Date,
-  type: string
+  type: string,
+  caption?: string,
   // status: 'SENT'| "RECEIVED" | "DELIVERED"
 }
 export type Conversation = {
