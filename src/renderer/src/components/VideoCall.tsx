@@ -301,7 +301,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
       {!start && !comingCall && (
         <button
           onClick={startCall}
-          className={`flex items-center px-4 py-2 w-fit text-white rounded-full disabled:opacity-50 bg-green-500 hover:bg-green-600`}
+          className={`flex items-center px-2 py-2 w-fit text-white rounded-full disabled:opacity-50 bg-green-500 hover:bg-green-600`}
         >
           <PhoneIcon className="w-5 h-5 mr-2" />
         </button>

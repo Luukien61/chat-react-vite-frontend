@@ -14,6 +14,7 @@ import {
   ConversationRequest,
   createConversation,
   createGroup,
+  deleteGroupMember,
   getAllConversations,
   getAllGroupsIdByUserId,
   getAllParticipants,
@@ -57,6 +58,7 @@ import VoiceRecorder from '@renderer/page/VoiceRecorder'
 import MessageItem from '@renderer/components/MessageItem'
 import { MdOutlineExitToApp, MdOutlineGroupAdd } from 'react-icons/md'
 import { Checkbox, Modal, Tooltip } from 'antd'
+import { useParticipantStore } from '@renderer/state/AppState'
 
 type QuickMessage = {
   id: string
@@ -138,6 +140,8 @@ const Message = () => {
   const [isOpenGroup, setIsOpenGroup] = useState(false)
   const [isOpenAddMem, setIsOpenAddMem] = useState(false)
   const [addMembers, setAddMembers] = useState<string[]>([])
+  const { clearParticipantStore } = useParticipantStore()
+  const [isOpenExitGroup, setIsOpenExitGroup] = useState(false)
 
   const debouncedHandleSearching = useRef(
     debounce(
@@ -192,11 +196,12 @@ const Message = () => {
     })
   }
 
-  const onNotification = (groupId: string) => {
+  const onNotification = (groupId: string, _isGroup?: boolean, params?: any) => {
+    console.log('onNotification', groupId)
     subscribeToTopic(`/topic/group/${groupId}`, (groupMessage) => {
       onPrivateMessage(groupMessage, true)
     })
-    getAllConversation(currentUserId)
+    getAllConversation(params)
   }
 
   const handleScroll = () => {
@@ -331,7 +336,7 @@ const Message = () => {
         setIsGoogleAccount(id.startsWith('google_'))
         connectWebSocket(() => {
           subscribeToTopic(`/user/${id}/private`, onPrivateMessage, false)
-          subscribeToTopic(`/user/${id}/notification`, onNotification)
+          subscribeToTopic(`/user/${id}/notification`, onNotification, true, id)
           fetchAllGroupIdByUserId(id)
         })
       } catch (e: any) {
@@ -377,6 +382,7 @@ const Message = () => {
         await getMessageByConversationId(conversationId, [])
       }
       groupParticipantsRef.current = undefined
+      clearParticipantStore()
     }
     await delay(20)
     handleScroll()
@@ -620,8 +626,6 @@ const Message = () => {
     })
   }
 
-
-
   const handleAddMembers = async () => {
     try {
       if (currentConversationId) {
@@ -639,6 +643,21 @@ const Message = () => {
   const onCancelAddGroupMem = () => {
     setIsOpenAddMem(false)
     setAddMembers([])
+  }
+
+  const handleDeleteChat = async () => {
+    try {
+      if (currentConversationId && currentUserId) {
+        const response = await deleteGroupMember(currentConversationId, currentUserId)
+        if (response.status == 200) {
+          getAllConversation(currentUserId)
+          setIsOpenExitGroup(false)
+          setCurrentRecipient(undefined)
+        }
+      }
+    } catch (e) {
+      console.log(e)
+    }
   }
 
   // @ts-ignore
@@ -766,7 +785,7 @@ const Message = () => {
               />
               <p className={`font-bold`}>{currentRecipient.name}</p>
               {!isGroup ? (
-                <div className={`flex-1 flex justify-end`}>
+                <div className={`flex-1 items-center gap-3 pr-3 flex justify-end`}>
                   <VideoCall
                     senderName={loginUser ? loginUser.userName : ''}
                     senderAvatar={loginUser ? loginUser.avatar : ''}
@@ -786,7 +805,11 @@ const Message = () => {
                     />
                   </Tooltip>
                   <Tooltip title={'Exit group'}>
-                    <MdOutlineExitToApp className={`cursor-pointer`} size={24} />
+                    <MdOutlineExitToApp
+                      onClick={() => setIsOpenExitGroup(true)}
+                      className={`cursor-pointer`}
+                      size={24}
+                    />
                   </Tooltip>
                 </div>
               )}
@@ -1152,13 +1175,37 @@ const Message = () => {
               </div>
               <div className={`w-full flex justify-end`}>
                 <button
-                  disabled={addMembers.length<1}
+                  disabled={addMembers.length < 1}
                   onClick={handleAddMembers}
                   className={`p-1 px-2 rounded disabled:opacity-50 bg-blue-500 text-white font-bold hover:bg-blue-600`}
                 >
                   Thêm
                 </button>
               </div>
+            </div>
+          </div>
+        </Modal>
+        <Modal
+          onCancel={() => setIsOpenExitGroup(false)}
+          destroyOnClose={true}
+          footer={null}
+          open={isOpenExitGroup}
+          width={400}
+        >
+          <div className={`w-full flex flex-col`}>
+            <div className={`w-full pb-3  border-b`}>
+              <p className={`font-bold text-[16px]`}>Leave and delete this conversation</p>
+            </div>
+            <div className={`py-2`}>
+              <p>You won't be able to receive messages from this conversation after leaving.</p>
+            </div>
+            <div className={`w-full flex justify-end`}>
+              <button
+                onClick={handleDeleteChat}
+                className={`p-1 px-2 rounded bg-red-500 text-white font-bold hover:bg-red-600`}
+              >
+                Rời nhóm
+              </button>
             </div>
           </div>
         </Modal>

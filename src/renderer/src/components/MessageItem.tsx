@@ -1,9 +1,10 @@
 import { BiMessageSquareDetail } from 'react-icons/bi'
-import { ChatMessage } from '@renderer/service/WebSocketService'
-import React, { useState } from 'react'
+import { ChatMessage, Participant } from '@renderer/service/WebSocketService'
+import React, { useEffect, useState } from 'react'
 import { getAudioCaption, updateMessage } from '@renderer/axios/Request'
 import { toast } from 'react-toastify'
 import { Avatar, Spin } from 'antd'
+import { useParticipantStore } from '@renderer/state/AppState'
 
 interface MessageItemProps {
   value: ChatMessage
@@ -24,6 +25,8 @@ const MessageItem: React.FC<MessageItemProps> = ({
 }) => {
   const [audioCaption, setAudioCaption] = useState<string | undefined>(value.caption)
   const [isAudioCaptionOpen, setIsAudioCaptionOpen] = useState<boolean>(false)
+  const [currentSender, setCurrentSender] = useState<Participant>()
+  const { getOrFetchParticipant } = useParticipantStore.getState()
   const fetchAudioCaptions = async (message: ChatMessage) => {
     try {
       const response: { text: string } = await getAudioCaption({ url: value.content })
@@ -48,20 +51,38 @@ const MessageItem: React.FC<MessageItemProps> = ({
       fetchAudioCaptions(value)
     }
   }
+  const fetchSenderInfo = async () => {
+    if (isGroup) {
+      if (avatar != undefined && senderName != undefined) {
+        setCurrentSender({ avatar: avatar, name: senderName, id: value.senderId })
+      } else {
+
+        const participant = await getOrFetchParticipant(value.senderId)
+        if (participant) {
+          setCurrentSender(participant)
+        }
+      }
+    }
+  }
+  useEffect(() => {
+    fetchSenderInfo()
+  }, [value])
 
   return (
     <div
       key={index}
       className={`m-x-[16px] w-full flex gap-2 ${value.senderId != currentUserId ? 'justify-start' : 'justify-end'}`}
     >
-      {isGroup && currentUserId != value.senderId && <Avatar src={avatar} alt={value.senderName} />}
+      {isGroup && currentUserId != value.senderId && (
+        <Avatar src={currentSender && currentSender.avatar} alt={value.senderName} />
+      )}
       <div className={`w-fit min-w-[80px] flex flex-col gap-1  max-w-[50%]`}>
         <div
           className={`drop-shadow relative block p-[12px] rounded-[8px] ${value.senderId != currentUserId ? 'bg-white' : 'bg-chat_me'}`}
         >
           {isGroup && currentUserId != value.senderId && (
             <div>
-              <p className={`text-blue-500`}>{senderName}</p>
+              <p className={`text-blue-500`}>{currentSender && currentSender.name}</p>
             </div>
           )}
           {value.type == 'text' && (

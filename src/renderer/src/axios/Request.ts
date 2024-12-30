@@ -120,3 +120,7 @@ export const createGroup = async (group: any) => {
 export const addGroupMember = async (conversationId: string, members: string[]) => {
   return await instance.put(`/group/${conversationId}/member/add`, members)
 }
+
+export const deleteGroupMember = async (conversationId: string, members: string) => {
+  return await instance.delete(`/conversation/${conversationId}/user/${members}`)
+}

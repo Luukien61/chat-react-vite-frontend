@@ -94,12 +94,13 @@ export interface VideoCallProps {
 // Hàm đăng ký nhận tin nhắn từ một endpoint cụ thể
 export const subscribeToTopic = (
   destination: string,
-  callback: (message: any, isGroup?: boolean) => void,
+  callback: (message: any, isGroup?: boolean, params?:any) => void,
   isGroup?: boolean,
+  params?:any
 ): StompSubscription | undefined => {
   if (client && client.connected) {
     return client.subscribe(destination, (message: IMessage) => {
-      callback(JSON.parse(message.body),isGroup)
+      callback(JSON.parse(message.body),isGroup,params)
     })
   }
   return undefined
