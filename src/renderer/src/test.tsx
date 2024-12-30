@@ -1,72 +1,96 @@
-import { Client } from '@stomp/stompjs'
+import { useEffect } from 'react'
 
 const Test = () => {
-  let client: Client | null = null
-  // Hàm kết nối WebSocket
-  const connectWebSocket = (onConnected) => {
-    client = new Client({
-      brokerURL: `ws://localhost:8080/ws`,
-      onConnect: onConnected,
-      reconnectDelay: 5000,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000
-    })
-
-    client.onWebSocketError = (error) => {
-      console.error('Error with websocket', error)
-    }
-
-    client.onStompError = (frame) => {
-      console.error('Broker reported error: ' + frame.headers['message'])
-      console.error('Additional details: ' + frame.body)
-    }
-
-    client.activate()
-  }
-
-  const subscribeToTopic = () => {
-    if (client) {
-      client.subscribe('/topic/group/12345689', (message) => {
-        console.log(JSON.parse(message.body))
+  async function checkTurnServer({ urls, username, credential, timeoutSeconds = 5 }) {
+    return new Promise((resolve) => {
+      // Create peer connection
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          {
+            urls: urls,
+            username: username,
+            credential: credential
+          }
+        ]
       })
-    }
-  }
 
-  const sendMessage = () => {
-    const chatMessage = {
-      id: "msg12345", // Unique ID cho tin nhắn
-      senderId: "user1", // ID người gửi
-      recipientId: "12345689", // ID người nhận (hoặc nhóm)
-      conversationId: "12345689", // ID cuộc trò chuyện
-      content: "This is the message content", // Nội dung tin nhắn
-      timestamp: new Date().toISOString(), // Thời điểm gửi tin nhắn
-      type: "text", // Loại tin nhắn (e.g., text, image, file, etc.)
-      caption: "Optional caption for the content" // Chú thích cho nội dung (tùy chọn)
-    };
+      // Set timeout
+      const timeout = setTimeout(() => {
+        cleanup()
+        resolve({
+          success: false,
+          error: 'Timeout checking TURN server'
+        })
+      }, timeoutSeconds * 1000)
 
-    if (client) {
-      client.publish({
-        destination: '/app/group/12345689',
-        body: JSON.stringify(chatMessage),
-        skipContentLengthHeader: true
-      })
-    }
-  }
-  return (
-    <div>
-      <button
-        onClick={() =>
-          connectWebSocket(() => {
-            console.log('Connected')
-            subscribeToTopic()
+      // Cleanup function
+      const cleanup = () => {
+        clearTimeout(timeout)
+        pc.close()
+      }
+
+      // Handle ICE candidate events
+      pc.onicecandidate = (e) => {
+        if (!e.candidate) return
+
+        // Check if we got a relay candidate
+        if (e.candidate.type === 'relay') {
+          cleanup()
+          resolve({
+            success: true,
+            candidate: e.candidate
           })
         }
-      >
-        Connect
-      </button>
-      <button onClick={sendMessage}>Send</button>
-    </div>
-  )
+      }
+
+      // Handle ICE connection state changes
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === 'failed') {
+          cleanup()
+          resolve({
+            success: false,
+            error: 'ICE connection failed'
+          })
+        }
+      }
+
+      // Handle errors
+      pc.onicecandidateerror = (e) => {
+        console.warn('ICE candidate error:', e)
+      }
+
+      // Create data channel to trigger ICE candidate gathering
+      pc.createDataChannel('test')
+
+      // Create offer to start ICE gathering
+      pc.createOffer()
+        .then((offer) => pc.setLocalDescription(offer))
+        .catch((err) => {
+          cleanup()
+          resolve({
+            success: false,
+            error: `Error creating offer: ${err.message}`
+          })
+        })
+    })
+  }
+
+  useEffect(() => {
+    test()
+  }, [])
+
+  const test = async () => {
+    const checkResult = await checkTurnServer({
+      urls: 'turn:13.214.139.81:3478',
+      username: 'luukien',
+      credential: '123456',
+      timeoutSeconds: 5
+    })
+
+    console.log('TURN server check result:', checkResult)
+  }
+
+  return <div></div>
 }
 
 export default Test
