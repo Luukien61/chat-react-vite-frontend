@@ -12,7 +12,10 @@ import { SlCamera } from 'react-icons/sl'
 import {
   ConversationRequest,
   createConversation,
+  createGroup,
   getAllConversations,
+  getAllGroupsIdByUserId,
+  getAllParticipants,
   getMessagesByConversationId,
   getParticipant,
   getUserProfile,
@@ -51,6 +54,8 @@ import zalo3 from '@renderer/assets/inapp-welcome-screen-04.jpg'
 import VideoCall from '@renderer/components/VideoCall'
 import VoiceRecorder from '@renderer/page/VoiceRecorder'
 import MessageItem from '@renderer/components/MessageItem'
+import { MdOutlineExitToApp, MdOutlineGroupAdd } from 'react-icons/md'
+import { Checkbox, Modal, Tooltip } from 'antd'
 
 type QuickMessage = {
   id: string
@@ -61,6 +66,7 @@ type QuickMessage = {
   time: Date
   conversationId: string
   type: string
+  isGroup: boolean
 }
 
 type CarouselItemProps = {
@@ -86,11 +92,28 @@ const CarouselItems: CarouselItemProps[] = [
   }
 ]
 
+interface GroupCreationProps {
+  name: string
+  id: string
+  senderId: string
+  recipients: string[]
+  createdAt: Date
+}
+
+const initialGroupCreationProps: GroupCreationProps = {
+  name: '',
+  id: '',
+  senderId: '',
+  createdAt: new Date(),
+  recipients: []
+}
+
 const Message = () => {
   const [typingMessage, setTypingMessage] = useState<string>('')
   const [loginUser, setLoginUser] = useState<User | null>(null)
   const [searchUsers, setSearchUsers] = useState<Participant[]>([])
   const [searchUser, setSearchUser] = useState<string>('')
+  const [searchUserGroup, setSearchUserGroup] = useState<string>('')
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [currentRecipient, setCurrentRecipient] = useState<Participant>()
   const [privateChats, setPrivateChats] = useState<ChatMessage[]>([])
@@ -107,37 +130,70 @@ const Message = () => {
   const [userAvatar, setUserAvatar] = useState<string>('')
   const [isAvatarChange, setIsAvatarChange] = useState<boolean>(false)
   const [isGoogleAccount, setIsGoogleAccount] = useState<boolean>(false)
+  const [isGroup, setIsGroup] = useState<boolean>(false)
+  const groupParticipantsRef = useRef<Map<String, Participant>>()
+  const [groupCreateRequest, setGroupCreateRequest] =
+    useState<GroupCreationProps>(initialGroupCreationProps)
+  const [isOpenGroup, setIsOpenGroup] = useState(false)
 
   const debouncedHandleSearching = useRef(
-    debounce(async (value: string, userId: string) => {
-      if (value != '') {
-        let response: Participant[] = await searchUserByEmail(value)
-        response = response.filter((value1) => value1.id !== userId)
-        setSearchUsers(response)
-      } else {
-        setSearchUsers([])
-      }
-    }, 500)
+    debounce(
+      async (
+        value: string,
+        userId: string,
+        setState: React.Dispatch<React.SetStateAction<Participant[]>>
+      ) => {
+        if (value != '') {
+          let response: Participant[] = await searchUserByEmail(value)
+          response = response.filter((value1) => value1.id !== userId)
+          setState(response)
+        } else {
+          setState([])
+        }
+      },
+      500
+    )
   ).current
 
   const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value: string = event.target.value
     setSearchUser(value)
+    debouncedHandleSearching(value, currentUserId, setSearchUsers)
+  }
+
+  const handleAddGroupMemChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const value: string = event.target.value
+    setSearchUserGroup(value)
     debouncedHandleSearching(value, currentUserId)
   }
 
-  const onPrivateMessage = (payload: ChatMessage) => {
+  const onPrivateMessage = async (payload: ChatMessage, isGroup?: boolean) => {
     updateAllQuickMessage(payload)
     setPrivateChats((prevChats) => {
       const isDup = prevChats.some((item) => item.id === payload.id)
-
       if (!isDup && prevChats[0] && payload.conversationId === prevChats[0].conversationId) {
+        if (isGroup) {
+          if (groupParticipantsRef.current) {
+            const participant = groupParticipantsRef.current.get(payload.senderId)
+            if (participant) {
+              payload.senderName = participant.name
+              payload.avatar = participant.avatar
+            }
+          }
+        }
         const newChats = [...prevChats, payload]
         handleScroll()
         return newChats
       }
       return prevChats
     })
+  }
+
+  const onNotification = (groupId: string) => {
+    subscribeToTopic(`/topic/group/${groupId}`, (groupMessage) => {
+      onPrivateMessage(groupMessage, true)
+    })
+    getAllConversation(currentUserId)
   }
 
   const handleScroll = () => {
@@ -152,7 +208,7 @@ const Message = () => {
         participantId
       )
       if (conversation) {
-        handleClickQuickMessage(conversation.id, participantId)
+        handleClickQuickMessage(conversation.id, participantId, false)
       }
     } catch (e: any) {
       setCurrentRecipient(participant)
@@ -173,13 +229,14 @@ const Message = () => {
         const participant: Participant = await getParticipant(participantId)
         const quickMessage: QuickMessage = {
           id: value.id,
-          avatar: participant.avatar,
-          name: participant.name,
+          avatar: value.groupAvatar || participant.avatar,
+          name: value.name || participant.name,
           text: value.lastMessage,
-          recipientId: participantId,
+          recipientId: value.name ? value.id : participantId,
           conversationId: value.id,
           time: value.modifiedAt,
-          type: value.type
+          type: value.type,
+          isGroup: value.name != null || value.name != undefined
         }
         return quickMessage
       })
@@ -192,26 +249,13 @@ const Message = () => {
     }
   }
 
-  // const updateQuickMessage = useCallback((payload: ChatMessage) => {
-  //   setAllQuickMessages((prevState) => {
-  //     prevState.forEach((message) => {
-  //       if (message.conversationId == payload.conversationId) {
-  //         message.text = payload.content
-  //         message.time = payload.timestamp
-  //         message.type = payload.type
-  //       }
-  //     })
-  //     // @ts-ignore
-  //     return prevState.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-  //   })
-  // }, [])
-
-  const updateAllQuickMessage = (payload: ChatMessage) => {
+  const updateAllQuickMessage = async (payload: ChatMessage) => {
+    const participant: Participant = await getParticipant(payload.senderId)
     setAllQuickMessages((prevState) => {
-      // Tạo một bản sao mới của prevState bằng cách map qua từng phần tử
+      let isExist = false
       const updatedMessages = prevState.map((message) => {
         if (message.conversationId === payload.conversationId) {
-          // Trả về một object mới với các thuộc tính đã được cập nhật
+          isExist = true
           return {
             ...message,
             text: payload.content,
@@ -219,20 +263,46 @@ const Message = () => {
             type: payload.type
           }
         }
-        // Trả về phần tử ban đầu nếu không có thay đổi
         return message
       })
-
-      console.log('Updated Messages: ', updatedMessages)
-
-      // Sắp xếp lại mảng và trả về mảng mới
+      if (!isExist) {
+        const newQuickMessage: QuickMessage = {
+          id: payload.id,
+          conversationId: payload.conversationId,
+          recipientId: payload.recipientId,
+          text: payload.content,
+          name: participant.name,
+          avatar: participant.avatar,
+          time: payload.timestamp,
+          type: payload.type,
+          isGroup: false
+        }
+        updatedMessages.push(newQuickMessage)
+      }
       return updatedMessages.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
     })
   }
 
-  const getMessageByConversationId = async (conversationId: string) => {
+  const getMessageByConversationId = async (
+    conversationId: string,
+    participants: Participant[]
+  ) => {
     try {
       let messages: ChatMessage[] = await getMessagesByConversationId(conversationId)
+      if (participants.length > 0) {
+        messages = messages.map((message) => {
+          for (const participant of participants) {
+            if (message.senderId == participant.id) {
+              return {
+                ...message,
+                avatar: participant.avatar,
+                senderName: participant.name
+              }
+            }
+          }
+          return message
+        })
+      }
       if (messages.length > 0) {
         messages = messages.reverse()
         messages = messages.filter(
@@ -250,13 +320,16 @@ const Message = () => {
     const getLogInUser = async (userId: string) => {
       try {
         const user: User = await getUserProfile(userId)
+        const id = user.id
         setLoginUser(user)
-        setCurrentUserId(user.id)
+        setCurrentUserId(id)
         setUserAvatar(user.avatar)
-        getAllConversation(user.id)
-        setIsGoogleAccount(user.id.startsWith('google_'))
+        getAllConversation(id)
+        setIsGoogleAccount(id.startsWith('google_'))
         connectWebSocket(() => {
-          subscribeToTopic(`/user/${user.id}/private`, onPrivateMessage)
+          subscribeToTopic(`/user/${id}/private`, onPrivateMessage, false)
+          subscribeToTopic(`/user/${id}/notification`, onNotification)
+          fetchAllGroupIdByUserId(id)
         })
       } catch (e: any) {
         toast.error(e.response.data)
@@ -270,13 +343,37 @@ const Message = () => {
     }
   }, [])
 
-  const handleClickQuickMessage = async (conversationId: string, participantId: string) => {
-    const participant: Participant = await getParticipant(participantId)
-    setCurrentRecipient(participant)
-    setCurrentConversationId(conversationId)
-    // @ts-ignore
-    if (!currentRecipient || currentRecipient.id != participantId) {
-      await getMessageByConversationId(conversationId)
+  const handleClickQuickMessage = async (
+    conversationId: string,
+    participantId: string,
+    isGroup: boolean,
+    avatar?: string,
+    name?: string
+  ) => {
+    setIsGroup(isGroup)
+    if (isGroup) {
+      const participants: Participant[] = await getAllParticipants(conversationId)
+      groupParticipantsRef.current = new Map<string, Participant>(
+        participants.map((participant) => [participant.id, participant])
+      )
+      await getMessageByConversationId(conversationId, participants)
+      setCurrentConversationId(conversationId)
+      if (avatar && name) {
+        setCurrentRecipient({
+          avatar: avatar,
+          name: name,
+          id: conversationId
+        })
+      }
+    } else {
+      const participant: Participant = await getParticipant(participantId)
+      setCurrentRecipient(participant)
+      setCurrentConversationId(conversationId)
+      // @ts-ignore
+      if (!currentRecipient || currentRecipient.id != participantId) {
+        await getMessageByConversationId(conversationId, [])
+      }
+      groupParticipantsRef.current = undefined
     }
     await delay(20)
     handleScroll()
@@ -324,8 +421,11 @@ const Message = () => {
         conversationId: conversationId,
         type: type
       }
-
-      sendMessage('/app/private-message', messageItem)
+      if (isGroup) {
+        sendMessage(`/app/group/${conversationId}`, messageItem)
+      } else {
+        sendMessage('/app/private-message', messageItem)
+      }
       setTypingMessage('')
       setPrivateChats((prevState) => [...prevState, messageItem])
       handleScroll()
@@ -343,6 +443,17 @@ const Message = () => {
       toast.error(e.response.data)
     }
   }
+  const fetchAllGroupIdByUserId = async (userId: string) => {
+    try {
+      const response: string[] = await getAllGroupsIdByUserId(userId)
+      for (const groupId of response) {
+        subscribeToTopic(`/topic/group/${groupId}`, onPrivateMessage, true)
+      }
+    } catch (e) {
+      console.log(e)
+    }
+  }
+
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) {
@@ -459,7 +570,43 @@ const Message = () => {
     }
   }
 
+  const onMemGroupChange = (e, value: QuickMessage) => {
+    const isChecked = e.target.checked
+    setGroupCreateRequest((prevState) => {
+      const updatedRecipients = isChecked
+        ? [...prevState.recipients, value.recipientId]
+        : prevState.recipients.filter((id) => id !== value.recipientId)
+      return {
+        ...prevState,
+        recipients: updatedRecipients
+      }
+    })
+  }
 
+  const handleCloseGroupCreate = () => {
+    setGroupCreateRequest(initialGroupCreationProps)
+    setIsOpenGroup(false)
+  }
+
+  const handleGroupCreate = async () => {
+    if (groupCreateRequest.name) {
+      if (groupCreateRequest.recipients.length > 1) {
+        const request = groupCreateRequest
+        request.senderId = currentUserId
+        request.createdAt = new Date()
+        request.id = new Date().getTime().toString()
+        const response = await createGroup(request)
+        if (response.status == 200) {
+          handleCloseGroupCreate()
+          getAllConversation(currentUserId)
+        }
+      } else {
+        toast.error('Group members must have at least 2 recipients')
+      }
+    } else {
+      toast.error('Please fill your group name')
+    }
+  }
 
   // @ts-ignore
   // @ts-ignore
@@ -484,14 +631,21 @@ const Message = () => {
                 </div>
               </div>
             </div>
-            <div className={`w-full pr-3`}>
+            <div className={`w-full flex items-center pr-3`}>
               <input
                 value={searchUser}
                 onChange={handleSearchChange}
-                className={`w-full text-[16px] text-black p-2 rounded bg-gray-200 outline-none border `}
+                className={`w-[80%] text-[16px] text-black p-2 rounded bg-gray-200 outline-none border `}
                 placeholder={'Search email here...'}
                 spellCheck={false}
               />
+              <div className={`flex-1 flex items-center justify-center`}>
+                <MdOutlineGroupAdd
+                  onClick={() => setIsOpenGroup(true)}
+                  className={`cursor-pointer`}
+                  size={28}
+                />
+              </div>
             </div>
           </div>
           <div className={`overflow-y-scroll`}>
@@ -524,7 +678,15 @@ const Message = () => {
                 {allQuickMessages.map((value, index) => (
                   <div
                     key={index}
-                    onClick={() => handleClickQuickMessage(value.conversationId, value.recipientId)}
+                    onClick={() =>
+                      handleClickQuickMessage(
+                        value.conversationId,
+                        value.recipientId,
+                        value.isGroup,
+                        value.avatar,
+                        value.name
+                      )
+                    }
                     className={`px-2 mt-1 hover:bg-gray-100 border-t cursor-pointer rounded py-3  flex gap-x-2 ${currentRecipient && currentRecipient.id == value.recipientId ? 'bg-[#E5EFFF]' : 'bg-white'}`}
                   >
                     <div className={` flex items-center gap-x-3 w-[90%]`}>
@@ -544,15 +706,9 @@ const Message = () => {
                         </div>
                         <div>
                           <p className={`truncate max-w-[90%] text-gray-500`}>
-                            {
-                              value.type=='image' && '[Hình ảnh]'
-                            }
-                            {
-                              value.type=='audio' && '[Voice]'
-                            }
-                            {
-                              value.type=='text' && value.text
-                            }
+                            {value.type == 'image' && '[Hình ảnh]'}
+                            {value.type == 'audio' && '[Voice]'}
+                            {value.type == 'text' && value.text}
                           </p>
                         </div>
                       </div>
@@ -576,16 +732,27 @@ const Message = () => {
                 src={currentRecipient.avatar}
               />
               <p className={`font-bold`}>{currentRecipient.name}</p>
-              <div className={`flex-1 flex justify-end`}>
-                <VideoCall
-                  senderName={loginUser ? loginUser.userName : ''}
-                  senderAvatar={loginUser ? loginUser.avatar : ''}
-                  userName={currentRecipient.name}
-                  client={client}
-                  userId={currentUserId}
-                  targetUserId={currentRecipient && currentRecipient.id}
-                />
-              </div>
+              {!isGroup ? (
+                <div className={`flex-1 flex justify-end`}>
+                  <VideoCall
+                    senderName={loginUser ? loginUser.userName : ''}
+                    senderAvatar={loginUser ? loginUser.avatar : ''}
+                    userName={currentRecipient.name}
+                    client={client}
+                    userId={currentUserId}
+                    targetUserId={currentRecipient && currentRecipient.id}
+                  />
+                </div>
+              ) : (
+                <div className={`flex-1 h-full gap-4 flex pr-3 items-center justify-end`}>
+                  <Tooltip title={'Add new members'}>
+                    <MdOutlineGroupAdd className={`cursor-pointer`} size={24} />
+                  </Tooltip>
+                  <Tooltip title={'Exit group'}>
+                    <MdOutlineExitToApp className={`cursor-pointer`} size={24} />
+                  </Tooltip>
+                </div>
+              )}
             </div>
             {/*content*/}
             <div className={`flex-1 overflow-hidden relative h-full w-full`}>
@@ -595,7 +762,14 @@ const Message = () => {
                     {/*message card*/}
                     {privateChats.length > 0 &&
                       privateChats.map((value, index) => (
-                        <MessageItem currentUserId={currentUserId} index={index} value={value} />
+                        <MessageItem
+                          currentUserId={currentUserId}
+                          index={index}
+                          value={value}
+                          isGroup={isGroup}
+                          senderName={value.senderName}
+                          avatar={value.avatar}
+                        />
                       ))}
                   </div>
                   <div className={`h-[14px] break-words `} ref={bottomRef}></div>
@@ -829,6 +1003,112 @@ const Message = () => {
             </div>
           </div>
         </div>
+        <Modal
+          onCancel={handleCloseGroupCreate}
+          destroyOnClose={true}
+          footer={null}
+          open={isOpenGroup}
+        >
+          <div className={`w-full`}>
+            <div className={`w-full flex flex-col gap-4`}>
+              <div className={`flex gap-4 overflow-hidden items-center`}>
+                <input
+                  value={groupCreateRequest.name}
+                  onChange={(e) => {
+                    const newValue = e.target.value
+                    setGroupCreateRequest((prevState) => ({
+                      ...prevState,
+                      name: newValue
+                    }))
+                  }}
+                  className={`flex-1 text-[16px] text-black p-2 rounded outline-none border-b `}
+                  placeholder={'Enter group name '}
+                  spellCheck={false}
+                />
+              </div>
+              <input
+                value={searchUserGroup}
+                onChange={handleAddGroupMemChange}
+                className={`w-full text-[16px] text-black p-2 rounded bg-gray-200 outline-none border `}
+                placeholder={'Search members here...'}
+                spellCheck={false}
+              />
+
+              <div className={`flex flex-col gap-2 mt-3`}>
+                {allQuickMessages
+                  .filter((value) => !value.isGroup)
+                  .map((value, index) => (
+                    <Checkbox key={index} onChange={(e) => onMemGroupChange(e, value)}>
+                      <div className={`flex gap-2 items-center`}>
+                        <img
+                          alt={'user'}
+                          className={`h-[32px] aspect-square object-cover rounded-[100%]`}
+                          src={value.avatar}
+                        />
+                        <p className={`truncate max-w-full text-[#081C36]`}>{value.name}</p>
+                      </div>
+                    </Checkbox>
+                  ))}
+              </div>
+              <div className={`w-full flex justify-end`}>
+                <button
+                  onClick={handleGroupCreate}
+                  className={`p-1 px-2 rounded bg-blue-500 text-white font-bold hover:bg-blue-600`}
+                >
+                  Tạo nhóm
+                </button>
+              </div>
+            </div>
+          </div>
+        </Modal>
+        <Modal destroyOnClose={true} footer={null} open={true}>
+          <div className={`w-full`}>
+            <div className={`w-full flex flex-col gap-4`}>
+              <input
+                value={searchUserGroup}
+                onChange={handleAddGroupMemChange}
+                className={`w-[90%] text-[16px] text-black p-2 rounded bg-gray-200 outline-none border `}
+                placeholder={'Search members here...'}
+                spellCheck={false}
+              />
+
+              <div className={`flex flex-col gap-2 mt-3`}>
+                {allQuickMessages
+                  .filter((value) => !value.isGroup)
+                  .map((value, index) => {
+                    const isMember =
+                      groupParticipantsRef.current &&
+                      groupParticipantsRef.current.get(value.recipientId) != undefined
+                    return (
+                      <Checkbox
+                        key={index}
+                        checked={isMember}
+                        disabled={isMember}
+                        onChange={(e) => onMemGroupChange(e, value)}
+                      >
+                        <div className={`flex gap-2 items-center`}>
+                          <img
+                            alt={'user'}
+                            className={`h-[32px] aspect-square object-cover rounded-[100%]`}
+                            src={value.avatar}
+                          />
+                          <p className={`truncate max-w-full text-[#081C36]`}>{value.name}</p>
+                        </div>
+                      </Checkbox>
+                    )
+                  })}
+              </div>
+              <div className={`w-full flex justify-end`}>
+                <button
+                  onClick={handleGroupCreate}
+                  className={`p-1 px-2 rounded bg-blue-500 text-white font-bold hover:bg-blue-600`}
+                >
+                  Thêm
+                </button>
+              </div>
+            </div>
+          </div>
+        </Modal>
         <ToastContainer
           position="top-center"
           autoClose={1000}

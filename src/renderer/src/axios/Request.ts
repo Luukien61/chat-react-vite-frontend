@@ -104,3 +104,15 @@ export const getAudioCaption = async (body) => {
 export const updateMessage=async (message: ChatMessage) => {
   return await instance.put(`/message`, message).then((response) => response.data)
 }
+
+export const getAllParticipants = async (id: string) => {
+  return await instance.get(`/group/participant/${id}`).then((response) => response.data)
+}
+
+export const getAllGroupsIdByUserId=async (id: string) => {
+  return await instance.get(`/group/all/${id}`).then((response) => response.data)
+}
+
+export const createGroup = async (group: any) => {
+  return await instance.post(`/group/create`, group)
+}

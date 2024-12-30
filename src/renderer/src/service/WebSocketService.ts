@@ -15,6 +15,8 @@ export type ChatMessage = {
   timestamp: Date,
   type: string,
   caption?: string,
+  avatar?: string,
+  senderName?: string,
   // status: 'SENT'| "RECEIVED" | "DELIVERED"
 }
 export type Conversation = {
@@ -22,7 +24,9 @@ export type Conversation = {
   userIds: string[]
   modifiedAt: Date
   lastMessage: string,
-  type: string
+  type: string,
+  groupAvatar?: string,
+  name?: string,
 }
 
 export let client: Client | null = null
@@ -90,11 +94,26 @@ export interface VideoCallProps {
 // Hàm đăng ký nhận tin nhắn từ một endpoint cụ thể
 export const subscribeToTopic = (
   destination: string,
-  callback: (message: any) => void
+  callback: (message: any, isGroup?: boolean) => void,
+  isGroup?: boolean,
 ): StompSubscription | undefined => {
   if (client && client.connected) {
     return client.subscribe(destination, (message: IMessage) => {
-      callback(JSON.parse(message.body))
+      callback(JSON.parse(message.body),isGroup)
+    })
+  }
+  return undefined
+}
+
+export const subscribeToGroupTopic = (
+  destination: string,
+  callback: (message: any, isGroup: boolean, participants: Map<String,Participant>) => void,
+  isGroup: boolean,
+  participants: Map<String,Participant>,
+): StompSubscription | undefined => {
+  if (client && client.connected) {
+    return client.subscribe(destination, (message: IMessage) => {
+      callback(JSON.parse(message.body),isGroup,participants)
     })
   }
   return undefined
