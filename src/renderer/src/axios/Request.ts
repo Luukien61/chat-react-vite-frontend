@@ -116,3 +116,7 @@ export const getAllGroupsIdByUserId=async (id: string) => {
 export const createGroup = async (group: any) => {
   return await instance.post(`/group/create`, group)
 }
+
+export const addGroupMember = async (conversationId: string, members: string[]) => {
+  return await instance.put(`/group/${conversationId}/member/add`, members)
+}

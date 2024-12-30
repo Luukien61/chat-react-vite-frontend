@@ -10,6 +10,7 @@ import {
 import { Card, CardContent } from '@renderer/components/ui/card'
 import { SlCamera } from 'react-icons/sl'
 import {
+  addGroupMember,
   ConversationRequest,
   createConversation,
   createGroup,
@@ -135,6 +136,8 @@ const Message = () => {
   const [groupCreateRequest, setGroupCreateRequest] =
     useState<GroupCreationProps>(initialGroupCreationProps)
   const [isOpenGroup, setIsOpenGroup] = useState(false)
+  const [isOpenAddMem, setIsOpenAddMem] = useState(false)
+  const [addMembers, setAddMembers] = useState<string[]>([])
 
   const debouncedHandleSearching = useRef(
     debounce(
@@ -608,6 +611,36 @@ const Message = () => {
     }
   }
 
+  const onAddMemberGroupChange = (e, value: QuickMessage) => {
+    const isChecked = e.target.checked
+    setAddMembers((prevState) => {
+      return isChecked
+        ? [...prevState, value.recipientId]
+        : prevState.filter((id) => id !== value.recipientId)
+    })
+  }
+
+
+
+  const handleAddMembers = async () => {
+    try {
+      if (currentConversationId) {
+        const response = await addGroupMember(currentConversationId, addMembers)
+        if (response.status == 200) {
+          setAddMembers([])
+          setIsOpenAddMem(false)
+        }
+      }
+    } catch (e) {
+      console.log(e)
+    }
+  }
+
+  const onCancelAddGroupMem = () => {
+    setIsOpenAddMem(false)
+    setAddMembers([])
+  }
+
   // @ts-ignore
   // @ts-ignore
   return (
@@ -746,7 +779,11 @@ const Message = () => {
               ) : (
                 <div className={`flex-1 h-full gap-4 flex pr-3 items-center justify-end`}>
                   <Tooltip title={'Add new members'}>
-                    <MdOutlineGroupAdd className={`cursor-pointer`} size={24} />
+                    <MdOutlineGroupAdd
+                      onClick={() => setIsOpenAddMem(true)}
+                      className={`cursor-pointer`}
+                      size={24}
+                    />
                   </Tooltip>
                   <Tooltip title={'Exit group'}>
                     <MdOutlineExitToApp className={`cursor-pointer`} size={24} />
@@ -1061,7 +1098,12 @@ const Message = () => {
             </div>
           </div>
         </Modal>
-        <Modal destroyOnClose={true} footer={null} open={true}>
+        <Modal
+          onCancel={onCancelAddGroupMem}
+          destroyOnClose={true}
+          footer={null}
+          open={isOpenAddMem}
+        >
           <div className={`w-full`}>
             <div className={`w-full flex flex-col gap-4`}>
               <input
@@ -1080,28 +1122,39 @@ const Message = () => {
                       groupParticipantsRef.current &&
                       groupParticipantsRef.current.get(value.recipientId) != undefined
                     return (
-                      <Checkbox
-                        key={index}
-                        checked={isMember}
-                        disabled={isMember}
-                        onChange={(e) => onMemGroupChange(e, value)}
-                      >
-                        <div className={`flex gap-2 items-center`}>
-                          <img
-                            alt={'user'}
-                            className={`h-[32px] aspect-square object-cover rounded-[100%]`}
-                            src={value.avatar}
-                          />
-                          <p className={`truncate max-w-full text-[#081C36]`}>{value.name}</p>
-                        </div>
-                      </Checkbox>
+                      <>
+                        {isMember ? (
+                          <Checkbox key={index} checked={isMember} disabled={isMember}>
+                            <div className={`flex gap-2 items-center`}>
+                              <img
+                                alt={'user'}
+                                className={`h-[32px] aspect-square object-cover rounded-[100%]`}
+                                src={value.avatar}
+                              />
+                              <p className={`truncate max-w-full text-[#081C36]`}>{value.name}</p>
+                            </div>
+                          </Checkbox>
+                        ) : (
+                          <Checkbox key={index} onChange={(e) => onAddMemberGroupChange(e, value)}>
+                            <div className={`flex gap-2 items-center`}>
+                              <img
+                                alt={'user'}
+                                className={`h-[32px] aspect-square object-cover rounded-[100%]`}
+                                src={value.avatar}
+                              />
+                              <p className={`truncate max-w-full text-[#081C36]`}>{value.name}</p>
+                            </div>
+                          </Checkbox>
+                        )}
+                      </>
                     )
                   })}
               </div>
               <div className={`w-full flex justify-end`}>
                 <button
-                  onClick={handleGroupCreate}
-                  className={`p-1 px-2 rounded bg-blue-500 text-white font-bold hover:bg-blue-600`}
+                  disabled={addMembers.length<1}
+                  onClick={handleAddMembers}
+                  className={`p-1 px-2 rounded disabled:opacity-50 bg-blue-500 text-white font-bold hover:bg-blue-600`}
                 >
                   Thêm
                 </button>
