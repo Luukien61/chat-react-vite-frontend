@@ -70,6 +70,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
             await peerConnection.current.addIceCandidate(
               new RTCIceCandidate(signal.payload as RTCIceCandidateInit)
             )
+            console.log("Add signal", signal.payload as RTCIceCandidateInit)
           }
           break
         case 'call-rejected':
@@ -134,39 +135,39 @@ const VideoCall: React.FC<VideoCallProps> = ({
 
       peerConnection.current = new RTCPeerConnection({
         iceServers: [
+          {
+            urls: 'stun:stun.l.google.com:19302'
+          },
+          {
+            urls: [
+              'turn:13.214.139.81:3478',
+              'turn:13.214.139.81:3478?transport=udp',
+              'turn:13.214.139.81:3478?transport=tcp'
+            ],
+            username: 'luukien',
+            credential: '123456'
+          },
+          // { urls: 'stun:stun.relay.metered.ca:80' },
           // {
-          //   urls: 'stun:stun.l.google.com:19302'
+          //   urls: 'turn:global.relay.metered.ca:80',
+          //   username: '805ce163d368042ff2c6a264',
+          //   credential: 'yRP+qNFW9ae9vrxt'
           // },
           // {
-          //   urls: [
-          //     'turn:13.214.139.81:3478',
-          //     'turn:13.214.139.81:3478?transport=udp',
-          //     'turn:13.214.139.81:3478?transport=tcp'
-          //   ],
-          //   username: 'luukien',
-          //   credential: '123456'
+          //   urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+          //   username: '805ce163d368042ff2c6a264',
+          //   credential: 'yRP+qNFW9ae9vrxt'
           // },
-          { urls: 'stun:stun.relay.metered.ca:80' },
-          {
-            urls: 'turn:global.relay.metered.ca:80',
-            username: '805ce163d368042ff2c6a264',
-            credential: 'yRP+qNFW9ae9vrxt'
-          },
-          {
-            urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-            username: '805ce163d368042ff2c6a264',
-            credential: 'yRP+qNFW9ae9vrxt'
-          },
-          {
-            urls: 'turn:global.relay.metered.ca:443',
-            username: '805ce163d368042ff2c6a264',
-            credential: 'yRP+qNFW9ae9vrxt'
-          },
-          {
-            urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-            username: '805ce163d368042ff2c6a264',
-            credential: 'yRP+qNFW9ae9vrxt'
-          }
+          // {
+          //   urls: 'turn:global.relay.metered.ca:443',
+          //   username: '805ce163d368042ff2c6a264',
+          //   credential: 'yRP+qNFW9ae9vrxt'
+          // },
+          // {
+          //   urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+          //   username: '805ce163d368042ff2c6a264',
+          //   credential: 'yRP+qNFW9ae9vrxt'
+          // }
         ],
         iceTransportPolicy: 'all',
         bundlePolicy: 'max-bundle',
