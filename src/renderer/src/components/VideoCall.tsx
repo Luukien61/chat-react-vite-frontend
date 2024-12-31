@@ -140,9 +140,9 @@ const VideoCall: React.FC<VideoCallProps> = ({
           },
           {
             urls: [
-              'turn:13.214.139.81:3478',
-              'turn:13.214.139.81:3478?transport=udp',
-              'turn:13.214.139.81:3478?transport=tcp'
+              'turn:18.141.161.56:3478',
+              'turn:18.141.161.56:3478?transport=udp',
+              'turn:18.141.161.56:3478?transport=tcp'
             ],
             username: 'luukien',
             credential: '123456'
