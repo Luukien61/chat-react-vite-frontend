@@ -146,11 +146,11 @@ const VideoCall: React.FC<VideoCallProps> = ({
           },
           { urls: 'stun:stun.l.google.com:19302' },
           // { urls: 'stun:stun.relay.metered.ca:80' },
-          {
-            urls: 'turn:global.relay.metered.ca:80',
-            username: '805ce163d368042ff2c6a264',
-            credential: 'yRP+qNFW9ae9vrxt'
-          },
+          // {
+          //   urls: 'turn:global.relay.metered.ca:80',
+          //   username: '805ce163d368042ff2c6a264',
+          //   credential: 'yRP+qNFW9ae9vrxt'
+          // },
           // {
           //   urls: 'turn:global.relay.metered.ca:80?transport=tcp',
           //   username: '805ce163d368042ff2c6a264',
