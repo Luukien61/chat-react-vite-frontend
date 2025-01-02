@@ -87,22 +87,36 @@ const VideoCall: React.FC<VideoCallProps> = ({
   }
 
   const acceptCall = async () => {
-    setStart(true)
-    await delay(200)
-    await initLocalStream()
-    if (peerConnection.current && signal) {
-      await peerConnection.current.setRemoteDescription(
-        new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit)
-      )
-      const answer = await peerConnection.current.createAnswer()
-      await peerConnection.current.setLocalDescription(answer)
-      webRTCService.current?.sendSignal(
-        'answer',
-        answer,
-        targetUserIds.current,
-        senderName,
-        senderAvatar
-      )
+    try {
+      setStart(true)
+      // Khởi tạo PeerConnection trước
+      initPeerConnection()
+
+      // Sau đó thiết lập remote description từ offer nhận được
+      if (peerConnection.current && signal) {
+        await peerConnection.current.setRemoteDescription(
+          new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit)
+        )
+      }
+
+      // Khởi tạo local stream
+      await initLocalStream2()
+
+      // Tạo và gửi answer
+      if (peerConnection.current) {
+        const answer = await peerConnection.current.createAnswer()
+        await peerConnection.current.setLocalDescription(answer)
+        webRTCService.current?.sendSignal(
+          'answer',
+          answer,
+          targetUserIds.current,
+          senderName,
+          senderAvatar
+        )
+      }
+    } catch (error) {
+      console.error('Error accepting call:', error)
+      toast.error('Error accepting call: ' + error)
     }
   }
 
@@ -116,6 +130,79 @@ const VideoCall: React.FC<VideoCallProps> = ({
     )
     setComingCall(false)
     setStart(false)
+  }
+
+  const initPeerConnection = () => {
+    peerConnection.current = new RTCPeerConnection({
+      iceServers: [
+        {
+          urls: [
+            'turn:18.141.161.56:3478',
+            'turn:18.141.161.56:3478?transport=udp',
+            'turn:18.141.161.56:3478?transport=tcp'
+          ],
+          username: 'luukien',
+          credential: '123456'
+        },
+        { urls: 'stun:stun.l.google.com:19302' }
+      ],
+      iceTransportPolicy: 'all',
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require'
+    })
+
+    // Thiết lập event listeners
+    peerConnection.current.ontrack = (event: RTCTrackEvent) => {
+      console.log('Received remote track:', event.streams[0])
+      setRemoteStream(event.streams[0])
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = event.streams[0]
+      }
+    }
+
+    peerConnection.current.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
+      if (event.candidate) {
+        console.log('ICE Candidate:', event.candidate)
+        webRTCService.current?.sendSignal(
+          'ice-candidate',
+          event.candidate.toJSON(),
+          targetUserIds.current,
+          senderName,
+          senderAvatar
+        )
+      }
+    }
+
+    peerConnection.current.oniceconnectionstatechange = () => {
+      console.log('ICE connection state:', peerConnection.current?.iceConnectionState)
+      // ... phần code xử lý state của bạn
+    }
+  }
+
+  const initLocalStream2 = async (): Promise<void> => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      })
+
+      // Lưu local stream
+      setLocalStream(stream)
+      localStreamRef.current = stream
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream
+      }
+
+      // Thêm tracks vào peer connection
+      stream.getTracks().forEach((track) => {
+        if (peerConnection.current) {
+          peerConnection.current.addTrack(track, stream)
+        }
+      })
+    } catch (err) {
+      console.error('Error accessing media devices:', err)
+      toast.error('Error accessing media devices: ' + err)
+    }
   }
 
   const initLocalStream = async (): Promise<void> => {
