@@ -42,7 +42,7 @@ const LogIn = () => {
         delay(100)
         navigate('/message')
       } catch (err: any) {
-        toast.error(err.response.data)
+        console.log(err)
       }
     } else {
       toast.error('Please fill the required fields')

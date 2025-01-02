@@ -70,6 +70,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
             await peerConnection.current.addIceCandidate(
               new RTCIceCandidate(signal.payload as RTCIceCandidateInit)
             )
+            console.log('Add signal', signal)
           }
           break
         case 'call-rejected':
@@ -134,16 +135,41 @@ const VideoCall: React.FC<VideoCallProps> = ({
 
       peerConnection.current = new RTCPeerConnection({
         iceServers: [
+          // {
+          //   urls: [
+          //     'turn:18.141.161.56:3478',
+          //     'turn:18.141.161.56:3478?transport=udp',
+          //     'turn:18.141.161.56:3478?transport=tcp'
+          //   ],
+          //   username: 'luukien',
+          //   credential: '123456'
+          // },
+          { urls: 'stun:stun.l.google.com:19302' },
+          // { urls: 'stun:stun.relay.metered.ca:80' },
           {
-            urls: [
-              'turn:18.142.115.156:443',
-              'turn:18.142.115.156:443?transport=udp',
-              'turn:18.142.115.156:443?transport=tcp'
-            ],
-            username: 'luukien',
-            credential: '123456'
-          }
-        ]
+            urls: 'turn:global.relay.metered.ca:80',
+            username: '805ce163d368042ff2c6a264',
+            credential: 'yRP+qNFW9ae9vrxt'
+          },
+          // {
+          //   urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+          //   username: '805ce163d368042ff2c6a264',
+          //   credential: 'yRP+qNFW9ae9vrxt'
+          // },
+          // {
+          //   urls: 'turn:global.relay.metered.ca:443',
+          //   username: '805ce163d368042ff2c6a264',
+          //   credential: 'yRP+qNFW9ae9vrxt'
+          // },
+          // {
+          //   urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+          //   username: '805ce163d368042ff2c6a264',
+          //   credential: 'yRP+qNFW9ae9vrxt'
+          // }
+        ],
+        iceTransportPolicy: 'all',
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
       })
 
       stream.getTracks().forEach((track) => {
@@ -161,7 +187,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
 
       peerConnection.current.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
         if (event.candidate) {
-          console.log("ICE Candidate:", event.candidate);
+          console.log('ICE Candidate:', event.candidate)
           webRTCService.current?.sendSignal(
             'ice-candidate',
             event.candidate.toJSON(),
@@ -169,28 +195,24 @@ const VideoCall: React.FC<VideoCallProps> = ({
             senderName,
             senderAvatar
           )
-        }
-        else {
-          console.log("All ICE candidates have been sent.");
+        } else {
+          console.log('All ICE candidates have been sent.')
         }
       }
 
-
-
       peerConnection.current.oniceconnectionstatechange = () => {
-        console.log("ICE connection state changed:", peerConnection.current?.iceConnectionState);
+        console.log('ICE connection state changed:', peerConnection.current?.iceConnectionState)
         if (peerConnection.current?.iceConnectionState === 'failed') {
-          console.log("ICE connection failed, troubleshooting required.");
+          console.log('ICE connection failed, troubleshooting required.')
           // Thực hiện các bước xử lý khi kết nối thất bại
         } else if (peerConnection.current?.iceConnectionState === 'disconnected') {
-          console.log("ICE connection disconnected, checking network issues.");
+          console.log('ICE connection disconnected, checking network issues.')
           // Kiểm tra các vấn đề mạng
         } else if (peerConnection.current?.iceConnectionState === 'connected') {
-          console.log("ICE connection established and connected.");
+          console.log('ICE connection established and connected.')
           // Kết nối thành công
         }
-      };
-
+      }
     } catch (err) {
       toast.error('Error accessing media devices:' + err)
     }
