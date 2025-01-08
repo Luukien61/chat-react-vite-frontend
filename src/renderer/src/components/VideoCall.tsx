@@ -32,7 +32,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
   const [callerAvatar, setCallerAvatar] = useState<string>('')
   const [muteVideo, setMuteVideo] = useState<boolean>(false)
   const [muteAudio, setMuteAudio] = useState<boolean>(false)
-  const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
+
 
   useEffect(() => {
     if (client) {
@@ -42,7 +42,21 @@ const VideoCall: React.FC<VideoCallProps> = ({
     setCallerName(userName)
   }, [userId])
 
-  const iceCandidateQueue: RTCIceCandidateInit[] = [];
+  // Declare a ref to store queued ICE candidates
+  const queuedCandidates = useRef<RTCIceCandidateInit[]>([]);
+
+// Process queued ICE candidates after remote description is set
+  useEffect(() => {
+    if (peerConnection.current && peerConnection.current.remoteDescription) {
+      while (queuedCandidates.current.length > 0) {
+        const candidate = queuedCandidates.current.shift();
+        if (candidate) {
+          peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+          console.log('Processed queued ICE candidate:', candidate);
+        }
+      }
+    }
+  }, [peerConnection.current?.remoteDescription]);
 
 
   const handleWebRTCSignal = async (signal: RTCSignal): Promise<void> => {
@@ -61,34 +75,28 @@ const VideoCall: React.FC<VideoCallProps> = ({
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
           }
-
           if (!peerConnection.current) return;
-
-          // Set remote description for answer
+          console.log('state', peerConnection.current.signalingState);
           await peerConnection.current.setRemoteDescription(
             new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit)
           );
-
-          // Process any ICE candidates that were queued while waiting for remote description
-          await processIceCandidateQueue(peerConnection.current);
           break;
 
         case 'ice-candidate':
           if (!peerConnection.current) return;
 
-          // Only process ICE candidates if we have a remote description
-          if (peerConnection.current.remoteDescription === null) {
-            console.log('Queuing ICE candidate until remote description is set');
-            // Queue the ICE candidate
-            iceCandidateQueue.push(signal.payload as RTCIceCandidateInit);
-            return;
-          }
-
-          if (signal.payload) {
+          // Check if remote description is set
+          if (peerConnection.current.remoteDescription) {
             await peerConnection.current.addIceCandidate(
               new RTCIceCandidate(signal.payload as RTCIceCandidateInit)
             );
-            console.log('Added ICE candidate:', signal);
+            console.log('Added ICE candidate', signal);
+          } else {
+            // Queue the ICE candidate for later
+            console.warn(
+              'Remote description is not set yet. Queuing ICE candidate.'
+            );
+            queuedCandidates.current.push(signal.payload as RTCIceCandidateInit);
           }
           break;
 
@@ -102,20 +110,6 @@ const VideoCall: React.FC<VideoCallProps> = ({
       }
     } catch (err) {
       console.error('Error handling WebRTC signal:', err);
-    }
-  };
-
-  const processIceCandidateQueue = async (peerConnection: RTCPeerConnection) => {
-    while (iceCandidateQueue.length > 0) {
-      const candidate = iceCandidateQueue.shift();
-      if (candidate) {
-        try {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-          console.log('Processed queued ICE candidate');
-        } catch (err) {
-          console.error('Error processing queued ICE candidate:', err);
-        }
-      }
     }
   };
 
@@ -240,20 +234,9 @@ const VideoCall: React.FC<VideoCallProps> = ({
           console.log('ICE connection failed, troubleshooting required.')
           // Thực hiện các bước xử lý khi kết nối thất bại
         } else if (peerConnection.current?.iceConnectionState === 'disconnected') {
-
-          reconnectTimeout.current = setTimeout(() => {
-            if (peerConnection.current?.iceConnectionState === 'disconnected') {
-              restartIce(peerConnection.current);
-            }
-          }, 2000);
-
           console.log('ICE connection disconnected, checking network issues.')
           // Kiểm tra các vấn đề mạng
         } else if (peerConnection.current?.iceConnectionState === 'connected') {
-          if (reconnectTimeout.current) {
-            clearTimeout(reconnectTimeout.current);
-            reconnectTimeout.current = null;
-          }
           console.log('ICE connection established and connected.')
           // Kết nối thành công
         }
@@ -262,25 +245,6 @@ const VideoCall: React.FC<VideoCallProps> = ({
       toast.error('Error accessing media devices:' + err)
     }
   }
-
-  const restartIce = async (pc: RTCPeerConnection) => {
-    try {
-      if (pc.signalingState === 'stable') {
-        // Tạo offer mới với iceRestart: true
-        const offer = await pc.createOffer({ iceRestart: true });
-        await pc.setLocalDescription(offer);
-        webRTCService.current?.sendSignal(
-          'offer',
-          offer,
-          targetUserIds.current,
-          senderName,
-          senderAvatar
-        )
-      }
-    } catch (err) {
-      console.error('Error restarting ICE:', err);
-    }
-  };
 
   const startCall = async (): Promise<void> => {
     setStart(true)
