@@ -32,7 +32,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
   const [callerAvatar, setCallerAvatar] = useState<string>('')
   const [muteVideo, setMuteVideo] = useState<boolean>(false)
   const [muteAudio, setMuteAudio] = useState<boolean>(false)
-
+  const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (client) {
@@ -201,7 +201,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
             credential: 'yRP+qNFW9ae9vrxt'
           }
         ],
-        iceTransportPolicy: 'all',
+        iceTransportPolicy: 'relay',
         bundlePolicy: 'max-bundle',
         rtcpMuxPolicy: 'require'
       })
@@ -240,9 +240,20 @@ const VideoCall: React.FC<VideoCallProps> = ({
           console.log('ICE connection failed, troubleshooting required.')
           // Thực hiện các bước xử lý khi kết nối thất bại
         } else if (peerConnection.current?.iceConnectionState === 'disconnected') {
+
+          reconnectTimeout.current = setTimeout(() => {
+            if (peerConnection.current?.iceConnectionState === 'disconnected') {
+              restartIce(peerConnection.current);
+            }
+          }, 2000);
+
           console.log('ICE connection disconnected, checking network issues.')
           // Kiểm tra các vấn đề mạng
         } else if (peerConnection.current?.iceConnectionState === 'connected') {
+          if (reconnectTimeout.current) {
+            clearTimeout(reconnectTimeout.current);
+            reconnectTimeout.current = null;
+          }
           console.log('ICE connection established and connected.')
           // Kết nối thành công
         }
@@ -251,6 +262,25 @@ const VideoCall: React.FC<VideoCallProps> = ({
       toast.error('Error accessing media devices:' + err)
     }
   }
+
+  const restartIce = async (pc: RTCPeerConnection) => {
+    try {
+      if (pc.signalingState === 'stable') {
+        // Tạo offer mới với iceRestart: true
+        const offer = await pc.createOffer({ iceRestart: true });
+        await pc.setLocalDescription(offer);
+        webRTCService.current?.sendSignal(
+          'offer',
+          offer,
+          targetUserIds.current,
+          senderName,
+          senderAvatar
+        )
+      }
+    } catch (err) {
+      console.error('Error restarting ICE:', err);
+    }
+  };
 
   const startCall = async (): Promise<void> => {
     setStart(true)
