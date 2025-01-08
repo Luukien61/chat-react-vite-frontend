@@ -137,15 +137,15 @@ const VideoCall: React.FC<VideoCallProps> = ({
 
       peerConnection.current = new RTCPeerConnection({
         iceServers: [
-          // {
-          //   urls: [
-          //     'turn:18.141.161.56:3478',
-          //     'turn:18.141.161.56:3478?transport=udp',
-          //     'turn:18.141.161.56:3478?transport=tcp'
-          //   ],
-          //   username: 'luukien',
-          //   credential: '123456'
-          // },
+          {
+            urls: [
+              'turn:18.141.161.56:3478',
+              'turn:18.141.161.56:3478?transport=udp',
+              'turn:18.141.161.56:3478?transport=tcp'
+            ],
+            username: 'luukien',
+            credential: '123456'
+          },
           { urls: 'stun:stun.l.google.com:19302' },
           // { urls: 'stun:stun.relay.metered.ca:80' },
           {
