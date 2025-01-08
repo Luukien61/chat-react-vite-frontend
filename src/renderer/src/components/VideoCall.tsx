@@ -115,22 +115,34 @@ const VideoCall: React.FC<VideoCallProps> = ({
 
 
   const acceptCall = async () => {
-    setStart(true)
-    await delay(200)
-    await initLocalStream()
-    if (peerConnection.current && signal) {
-      await peerConnection.current.setRemoteDescription(
-        new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit)
-      )
-      const answer = await peerConnection.current.createAnswer()
-      await peerConnection.current.setLocalDescription(answer)
-      webRTCService.current?.sendSignal(
-        'answer',
-        answer,
-        targetUserIds.current,
-        senderName,
-        senderAvatar
-      )
+    try {
+      setStart(true)
+      await delay(200)
+      await initLocalStream()
+
+      if (peerConnection.current && signal) {
+        console.log('Setting remote description...')
+        await peerConnection.current.setRemoteDescription(
+          new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit)
+        )
+
+        console.log('Creating answer...')
+        const answer = await peerConnection.current.createAnswer()
+
+        console.log('Setting local description...')
+        await peerConnection.current.setLocalDescription(answer)
+
+        console.log('Sending answer signal...')
+        webRTCService.current?.sendSignal(
+          'answer',
+          answer,
+          targetUserIds.current,
+          senderName,
+          senderAvatar
+        )
+      }
+    } catch (err) {
+      console.error('Error in acceptCall:', err)
     }
   }
 
