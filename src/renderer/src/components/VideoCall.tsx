@@ -33,12 +33,14 @@ const VideoCall: React.FC<VideoCallProps> = ({
   const [muteVideo, setMuteVideo] = useState<boolean>(false)
   const [muteAudio, setMuteAudio] = useState<boolean>(false)
 
+
   useEffect(() => {
     if (client) {
       webRTCService.current = new WebRTCService(client, userId)
       webRTCService.current.setSignalHandler(handleWebRTCSignal)
     }
-  }, [userId, client])
+    setCallerName(userName)
+  }, [userId])
 
   const handleWebRTCSignal = async (signal: RTCSignal): Promise<void> => {
     try {
@@ -151,21 +153,21 @@ const VideoCall: React.FC<VideoCallProps> = ({
             username: '805ce163d368042ff2c6a264',
             credential: 'yRP+qNFW9ae9vrxt'
           },
-          // {
-          //   urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-          //   username: '805ce163d368042ff2c6a264',
-          //   credential: 'yRP+qNFW9ae9vrxt'
-          // },
-          // {
-          //   urls: 'turn:global.relay.metered.ca:443',
-          //   username: '805ce163d368042ff2c6a264',
-          //   credential: 'yRP+qNFW9ae9vrxt'
-          // },
-          // {
-          //   urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-          //   username: '805ce163d368042ff2c6a264',
-          //   credential: 'yRP+qNFW9ae9vrxt'
-          // }
+          {
+            urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+            username: '805ce163d368042ff2c6a264',
+            credential: 'yRP+qNFW9ae9vrxt'
+          },
+          {
+            urls: 'turn:global.relay.metered.ca:443',
+            username: '805ce163d368042ff2c6a264',
+            credential: 'yRP+qNFW9ae9vrxt'
+          },
+          {
+            urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+            username: '805ce163d368042ff2c6a264',
+            credential: 'yRP+qNFW9ae9vrxt'
+          }
         ],
         iceTransportPolicy: 'all',
         bundlePolicy: 'max-bundle',
@@ -370,7 +372,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className="w-full  rounded-lg bg-gray-900"
+                className="w-full rounded-lg bg-gray-900"
               />
               <span className="absolute bottom-2 left-2 text-white bg-black/50 px-2 py-1 rounded">
                 {callerName}

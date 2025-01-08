@@ -197,7 +197,6 @@ const Message = () => {
   }
 
   const onNotification = (groupId: string, _isGroup?: boolean, params?: any) => {
-    console.log('onNotification', groupId)
     subscribeToTopic(`/topic/group/${groupId}`, (groupMessage) => {
       onPrivateMessage(groupMessage, true)
     })
@@ -785,8 +784,9 @@ const Message = () => {
               />
               <p className={`font-bold`}>{currentRecipient.name}</p>
               {!isGroup ? (
-                <div className={`flex-1 items-center gap-3 pr-3 flex justify-end`}>
+                <div  className={`flex-1 items-center gap-3 pr-3 flex justify-end`}>
                   <VideoCall
+                    key={`${currentUserId}-${currentRecipient.id}`}
                     senderName={loginUser ? loginUser.userName : ''}
                     senderAvatar={loginUser ? loginUser.avatar : ''}
                     userName={currentRecipient.name}
