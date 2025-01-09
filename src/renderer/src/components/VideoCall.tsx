@@ -55,6 +55,15 @@ const VideoCall: React.FC<VideoCallProps> = ({
     peerRef.current = new Peer(userId, {
       config: {
         iceServers: [
+          {
+            urls: [
+              'turn:18.141.161.56:3478',
+              'turn:18.141.161.56:3478?transport=udp',
+              'turn:18.141.161.56:3478?transport=tcp'
+            ],
+            username: 'luukien',
+            credential: '123456'
+          },
           { urls: 'stun:stun.l.google.com:19302' },
           {
             urls: 'turn:global.relay.metered.ca:80',
