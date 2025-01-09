@@ -1,126 +1,112 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { PhoneIcon, VideoIcon } from 'lucide-react'
 import { PiMicrophone } from 'react-icons/pi'
-import { RTCSignal, VideoCallProps } from '@renderer/service/WebSocketService'
-import { WebRTCService } from '@renderer/service/WebRTCService'
-import { delay } from '@renderer/page/GoogleCode'
+import Peer from 'peerjs'
 import { toast } from 'react-toastify'
+
+interface VideoCallProps {
+  userId: string
+  targetUserId: string
+  userName: string
+  senderName: string
+  senderAvatar: string
+}
+
+interface CallMetadata {
+  callerName: string
+  callerAvatar: string
+}
 
 const VideoCall: React.FC<VideoCallProps> = ({
                                                userId,
                                                targetUserId,
-                                               client,
                                                userName,
                                                senderName,
                                                senderAvatar
                                              }) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
-  const targetUserIds = useRef<string>(targetUserId)
-  // @ts-ignore
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
+  const [, setRemoteStream] = useState<MediaStream | null>(null)
   const [start, setStart] = useState<boolean>(false)
   const [comingCall, setComingCall] = useState<boolean>(false)
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
-  const peerConnection = useRef<RTCPeerConnection | null>(null)
-  const webRTCService = useRef<WebRTCService | null>(null)
-  const [signal, setSignal] = useState<RTCSignal | null>()
+  const peerRef = useRef<Peer | null>(null)
+  const currentCallRef = useRef<any>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
-  const [, setIsCalling] = useState<boolean>(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [callerName, setCallerName] = useState<string>(userName)
   const [callerAvatar, setCallerAvatar] = useState<string>('')
   const [muteVideo, setMuteVideo] = useState<boolean>(false)
   const [muteAudio, setMuteAudio] = useState<boolean>(false)
-
+  // @ts-ignore
+  const dataConnectionRef = useRef<Peer.DataConnection | null>(null);
 
   useEffect(() => {
-    if (client) {
-      webRTCService.current = new WebRTCService(client, userId)
-      webRTCService.current.setSignalHandler(handleWebRTCSignal)
+    initPeer()
+    return () => {
+      if (peerRef.current) {
+        peerRef.current.destroy()
+      }
     }
-    setCallerName(userName)
   }, [userId])
 
-  const handleWebRTCSignal = async (signal: RTCSignal): Promise<void> => {
-    try {
-      switch (signal.type) {
-        case 'offer':
-          setSignal(signal)
-          targetUserIds.current = signal.senderUserId
-          setCallerAvatar(signal.senderAvatar)
-          setCallerName(signal.senderName)
-          setComingCall(true)
-          break
-
-        case 'answer':
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current)
-            timeoutRef.current = null
+  const initPeer = () => {
+    // Khởi tạo Peer với ID là userId
+    peerRef.current = new Peer(userId, {
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          {
+            urls: 'turn:global.relay.metered.ca:80',
+            username: '805ce163d368042ff2c6a264',
+            credential: 'yRP+qNFW9ae9vrxt'
+          },
+          {
+            urls: 'turn:global.relay.metered.ca:443',
+            username: '805ce163d368042ff2c6a264',
+            credential: 'yRP+qNFW9ae9vrxt'
           }
-          if (!peerConnection.current) return
-          console.log('state', peerConnection.current.signalingState)
-          await peerConnection.current.setRemoteDescription(
-            new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit)
-          )
-
-          break
-
-        case 'ice-candidate':
-          if (!peerConnection.current) return
-          if (signal.payload) {
-            await peerConnection.current.addIceCandidate(
-              new RTCIceCandidate(signal.payload as RTCIceCandidateInit)
-            )
-            console.log('Add signal', signal)
-          }
-          break
-        case 'call-rejected':
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current)
-            timeoutRef.current = null
-          }
-          clearVideoCall()
-          break
+        ]
       }
-    } catch (err) {
-      console.error('Error handling WebRTC signal:', err)
-    }
+    })
+
+    peerRef.current.on('call', async (call) => {
+      const metadata = call.metadata as CallMetadata
+      setComingCall(true)
+      setCallerName(metadata.callerName)
+      setCallerAvatar(metadata.callerAvatar)
+      currentCallRef.current = call
+
+      call.on('stream', (remoteStream) => {
+        setRemoteStream(remoteStream)
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream
+        }
+      })
+
+      call.on('close', () => {
+        clearVideoCall()
+      })
+    })
+
+    peerRef.current.on('connection', (conn) => {
+      dataConnectionRef.current = conn;
+
+      // @ts-ignore
+      conn.on('data', (data: { type: string }) => {
+        if (data.type === 'end-call') {
+          clearVideoCall();
+        }
+      });
+    });
+
+    peerRef.current.on('error', (err) => {
+      console.error('Peer error:', err)
+      toast.error('Connection error: ' + err.type)
+    })
   }
 
-  const acceptCall = async () => {
-    setStart(true)
-    await delay(200)
-    await initLocalStream()
-    if (peerConnection.current && signal) {
-      await peerConnection.current.setRemoteDescription(
-        new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit)
-      )
-      const answer = await peerConnection.current.createAnswer()
-      await peerConnection.current.setLocalDescription(answer)
-      webRTCService.current?.sendSignal(
-        'answer',
-        answer,
-        targetUserIds.current,
-        senderName,
-        senderAvatar
-      )
-    }
-  }
-
-  const rejectCall = () => {
-    webRTCService.current?.sendSignal(
-      'call-rejected',
-      {},
-      targetUserIds.current,
-      senderName,
-      senderAvatar
-    )
-    setComingCall(false)
-    setStart(false)
-  }
-
-  const initLocalStream = async (): Promise<void> => {
+  const initLocalStream = async (): Promise<MediaStream> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -131,177 +117,118 @@ const VideoCall: React.FC<VideoCallProps> = ({
       localStreamRef.current = stream
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream
-      } else {
-        console.log('No local stream')
       }
-
-      peerConnection.current = new RTCPeerConnection({
-        iceServers: [
-          // {
-          //   urls: [
-          //     'turn:18.141.161.56:3478',
-          //     'turn:18.141.161.56:3478?transport=udp',
-          //     'turn:18.141.161.56:3478?transport=tcp'
-          //   ],
-          //   username: 'luukien',
-          //   credential: '123456'
-          // },
-          { urls: 'stun:stun.l.google.com:19302' },
-          // { urls: 'stun:stun.relay.metered.ca:80' },
-          {
-            urls: 'turn:global.relay.metered.ca:80',
-            username: '805ce163d368042ff2c6a264',
-            credential: 'yRP+qNFW9ae9vrxt'
-          },
-          {
-            urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-            username: '805ce163d368042ff2c6a264',
-            credential: 'yRP+qNFW9ae9vrxt'
-          },
-          {
-            urls: 'turn:global.relay.metered.ca:443',
-            username: '805ce163d368042ff2c6a264',
-            credential: 'yRP+qNFW9ae9vrxt'
-          },
-          {
-            urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-            username: '805ce163d368042ff2c6a264',
-            credential: 'yRP+qNFW9ae9vrxt'
-          }
-        ],
-        iceTransportPolicy: 'all',
-        bundlePolicy: 'max-bundle',
-        rtcpMuxPolicy: 'require',
-        iceCandidatePoolSize: 20
-      })
-
-      stream.getTracks().forEach((track) => {
-        if (peerConnection.current) {
-          peerConnection.current.addTrack(track, stream)
-        }
-      })
-
-      peerConnection.current.ontrack = (event: RTCTrackEvent) => {
-        setRemoteStream(event.streams[0])
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = event.streams[0]
-        }
-      }
-
-      peerConnection.current.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
-        if (event.candidate) {
-          console.log('ICE Candidate:', event.candidate)
-          webRTCService.current?.sendSignal(
-            'ice-candidate',
-            event.candidate.toJSON(),
-            targetUserIds.current,
-            senderName,
-            senderAvatar
-          )
-        } else {
-          console.log('All ICE candidates have been sent.')
-        }
-      }
-
-      peerConnection.current.oniceconnectionstatechange = () => {
-        console.log('ICE connection state changed:', peerConnection.current?.iceConnectionState)
-        if (peerConnection.current?.iceConnectionState === 'failed') {
-          console.log('ICE connection failed, troubleshooting required.')
-          // Thực hiện các bước xử lý khi kết nối thất bại
-        } else if (peerConnection.current?.iceConnectionState === 'disconnected') {
-          console.log('ICE connection disconnected, checking network issues.')
-          // Kiểm tra các vấn đề mạng
-        } else if (peerConnection.current?.iceConnectionState === 'connected') {
-          console.log('ICE connection established and connected.')
-          // Kết nối thành công
-        }
-      }
+      return stream
     } catch (err) {
-      toast.error('Error accessing media devices:' + err)
+      toast.error('Error accessing media devices: ' + err)
+      throw err
     }
   }
 
   const startCall = async (): Promise<void> => {
     setStart(true)
     toast.success('Calling...')
-    await delay(100)
     try {
-      await initLocalStream()
-      if (!peerConnection.current) return
-      const offer = await peerConnection.current.createOffer()
-      await peerConnection.current.setLocalDescription(offer)
-      webRTCService.current?.sendSignal(
-        'offer',
-        offer,
-        targetUserIds.current,
-        senderName,
-        senderAvatar
-      )
+      const stream = await initLocalStream()
+      if (!peerRef.current) return
+
+      const metadata: CallMetadata = {
+        callerName: senderName,
+        callerAvatar: senderAvatar
+      }
+
+      const call = peerRef.current.call(targetUserId, stream,{ metadata })
+      currentCallRef.current = call
+
+      call.on('stream', (remoteStream) => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+          timeoutRef.current = null
+        }
+        setRemoteStream(remoteStream)
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream
+        }
+
+      })
+      if (peerRef.current) {
+        const conn = peerRef.current.connect(targetUserId);
+        dataConnectionRef.current = conn;
+
+        // @ts-ignore
+        conn.on('data', (data: { type: string }) => {
+          if (data.type === 'end-call') {
+            clearVideoCall();
+          }
+        })
+      }
       initiateCall()
     } catch (err) {
-      console.error('Error creating offer:', err)
+      console.error('Error starting call:', err)
+      clearVideoCall()
     }
+  }
+
+  const acceptCall = async () => {
+    setStart(true)
+
+
+    try {
+      const stream = await initLocalStream()
+      if (currentCallRef.current) {
+        currentCallRef.current.answer(stream)
+      }
+    } catch (err) {
+      console.error('Error accepting call:', err)
+      clearVideoCall()
+    }
+  }
+
+  const rejectCall = () => {
+    stopCall()
   }
 
   const stopCall = async (): Promise<void> => {
-    webRTCService.current?.sendSignal(
-      'call-rejected',
-      {},
-      targetUserIds.current,
-      senderName,
-      senderAvatar
-    )
-    await delay(200)
+    if (dataConnectionRef.current && dataConnectionRef.current.open) {
+      dataConnectionRef.current.send({ type: 'end-call' });
+    }
+    if (currentCallRef.current) {
+      currentCallRef.current.close()
+    }
+    if (dataConnectionRef.current) {
+      dataConnectionRef.current.close();
+    }
     clearVideoCall()
+
   }
 
   const initiateCall = () => {
-    setIsCalling(true)
-
-    // Bắt đầu timeout 15 giây
     timeoutRef.current = setTimeout(() => {
       toast.error('The user does not reply')
-      handleCallTimeout()
-    }, 10000) // 15 giây
-  }
-
-  const handleCallTimeout = () => {
-    stopTime()
-  }
-
-  const stopTime = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-      timeoutRef.current = null
-    }
-    stopCall()
+      stopCall()
+    }, 10000)
   }
 
   const clearVideoCall = () => {
     setStart(false)
     setComingCall(false)
 
-    try {
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => track.stop())
-        localStreamRef.current = null // Gán null sau khi đã dừng tất cả các track
-      }
-      setLocalStream(null)
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
 
-      if (peerConnection.current) {
-        peerConnection.current.close()
-        peerConnection.current = null
-      }
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop())
+      localStreamRef.current = null
+    }
+    setLocalStream(null)
 
-      // 4. Xóa video elements (nếu có)
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = null
-      }
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = null
-      }
-    } catch (err) {
-      console.error('Error stopping call:', err)
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null
+    }
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null
     }
   }
 
@@ -321,6 +248,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
     }
   }
 
+  // JSX phần return giữ nguyên như cũ
   return (
     <div className="flex flex-col">
       {!start && !comingCall && (
