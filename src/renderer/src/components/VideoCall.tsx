@@ -7,13 +7,13 @@ import { delay } from '@renderer/page/GoogleCode'
 import { toast } from 'react-toastify'
 
 const VideoCall: React.FC<VideoCallProps> = ({
-  userId,
-  targetUserId,
-  client,
-  userName,
-  senderName,
-  senderAvatar
-}) => {
+                                               userId,
+                                               targetUserId,
+                                               client,
+                                               userName,
+                                               senderName,
+                                               senderAvatar
+                                             }) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const targetUserIds = useRef<string>(targetUserId)
   // @ts-ignore
@@ -42,107 +42,69 @@ const VideoCall: React.FC<VideoCallProps> = ({
     setCallerName(userName)
   }, [userId])
 
-  // Declare a ref to store queued ICE candidates
-  const queuedCandidates = useRef<RTCIceCandidateInit[]>([]);
-
-// Process queued ICE candidates after remote description is set
-  useEffect(() => {
-    if (peerConnection.current && peerConnection.current.remoteDescription) {
-      while (queuedCandidates.current.length > 0) {
-        const candidate = queuedCandidates.current.shift();
-        if (candidate) {
-          peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-          console.log('Processed queued ICE candidate:', candidate);
-        }
-      }
-    }
-  }, [peerConnection.current?.remoteDescription]);
-
-
   const handleWebRTCSignal = async (signal: RTCSignal): Promise<void> => {
     try {
       switch (signal.type) {
         case 'offer':
-          setSignal(signal);
-          targetUserIds.current = signal.senderUserId;
-          setCallerAvatar(signal.senderAvatar);
-          setCallerName(signal.senderName);
-          setComingCall(true);
-          break;
+          setSignal(signal)
+          targetUserIds.current = signal.senderUserId
+          setCallerAvatar(signal.senderAvatar)
+          setCallerName(signal.senderName)
+          setComingCall(true)
+          break
 
         case 'answer':
           if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
+            clearTimeout(timeoutRef.current)
+            timeoutRef.current = null
           }
-          if (!peerConnection.current) return;
-          console.log('state', peerConnection.current.signalingState);
+          if (!peerConnection.current) return
+          console.log('state', peerConnection.current.signalingState)
           await peerConnection.current.setRemoteDescription(
             new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit)
-          );
-          break;
+          )
+
+          break
 
         case 'ice-candidate':
-          if (!peerConnection.current) return;
-
-          // Check if remote description is set
-          if (peerConnection.current.remoteDescription) {
+          if (!peerConnection.current) return
+          if (signal.payload) {
             await peerConnection.current.addIceCandidate(
               new RTCIceCandidate(signal.payload as RTCIceCandidateInit)
-            );
-            console.log('Added ICE candidate', signal);
-          } else {
-            // Queue the ICE candidate for later
-            console.warn(
-              'Remote description is not set yet. Queuing ICE candidate.'
-            );
-            queuedCandidates.current.push(signal.payload as RTCIceCandidateInit);
+            )
+            console.log('Add signal', signal)
           }
-          break;
-
+          break
         case 'call-rejected':
           if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
+            clearTimeout(timeoutRef.current)
+            timeoutRef.current = null
           }
-          clearVideoCall();
-          break;
+          clearVideoCall()
+          break
       }
     } catch (err) {
-      console.error('Error handling WebRTC signal:', err);
+      console.error('Error handling WebRTC signal:', err)
     }
-  };
-
+  }
 
   const acceptCall = async () => {
-    try {
-      setStart(true)
-      await delay(200)
-      await initLocalStream()
-
-      if (peerConnection.current && signal) {
-        console.log('Setting remote description...')
-        await peerConnection.current.setRemoteDescription(
-          new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit)
-        )
-
-        console.log('Creating answer...')
-        const answer = await peerConnection.current.createAnswer()
-
-        console.log('Setting local description...')
-        await peerConnection.current.setLocalDescription(answer)
-
-        console.log('Sending answer signal...')
-        webRTCService.current?.sendSignal(
-          'answer',
-          answer,
-          targetUserIds.current,
-          senderName,
-          senderAvatar
-        )
-      }
-    } catch (err) {
-      console.error('Error in acceptCall:', err)
+    setStart(true)
+    await delay(200)
+    await initLocalStream()
+    if (peerConnection.current && signal) {
+      await peerConnection.current.setRemoteDescription(
+        new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit)
+      )
+      const answer = await peerConnection.current.createAnswer()
+      await peerConnection.current.setLocalDescription(answer)
+      webRTCService.current?.sendSignal(
+        'answer',
+        answer,
+        targetUserIds.current,
+        senderName,
+        senderAvatar
+      )
     }
   }
 
@@ -175,15 +137,15 @@ const VideoCall: React.FC<VideoCallProps> = ({
 
       peerConnection.current = new RTCPeerConnection({
         iceServers: [
-          {
-            urls: [
-              'turn:18.141.161.56:3478',
-              'turn:18.141.161.56:3478?transport=udp',
-              'turn:18.141.161.56:3478?transport=tcp'
-            ],
-            username: 'luukien',
-            credential: '123456'
-          },
+          // {
+          //   urls: [
+          //     'turn:18.141.161.56:3478',
+          //     'turn:18.141.161.56:3478?transport=udp',
+          //     'turn:18.141.161.56:3478?transport=tcp'
+          //   ],
+          //   username: 'luukien',
+          //   credential: '123456'
+          // },
           { urls: 'stun:stun.l.google.com:19302' },
           // { urls: 'stun:stun.relay.metered.ca:80' },
           {
@@ -207,9 +169,10 @@ const VideoCall: React.FC<VideoCallProps> = ({
             credential: 'yRP+qNFW9ae9vrxt'
           }
         ],
-        iceTransportPolicy: 'relay',
+        iceTransportPolicy: 'all',
         bundlePolicy: 'max-bundle',
-        rtcpMuxPolicy: 'require'
+        rtcpMuxPolicy: 'require',
+        iceCandidatePoolSize: 20
       })
 
       stream.getTracks().forEach((track) => {
@@ -404,13 +367,13 @@ const VideoCall: React.FC<VideoCallProps> = ({
         <div
           className={`backdrop-blur-sm bg-black px-6 gap-4 bg-opacity-60 flex flex-col overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-center w-full h-full max-h-full`}
         >
-          <div className="grid grid-cols-12 gap-4">
+          <div className="grid grid-cols-12  gap-4">
             <div className="relative col-span-9">
               <video
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className="w-full rounded-lg bg-gray-900"
+                className="w-full  rounded-lg bg-gray-900"
               />
               <span className="absolute bottom-2 left-2 text-white bg-black/50 px-2 py-1 rounded">
                 {callerName}
