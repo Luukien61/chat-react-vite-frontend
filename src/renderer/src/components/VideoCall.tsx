@@ -10,20 +10,22 @@ interface VideoCallProps {
   userName: string
   senderName: string
   senderAvatar: string
+  display: boolean
 }
 
-interface CallMetadata {
+export interface CallMetadata {
   callerName: string
   callerAvatar: string
 }
 
 const VideoCall: React.FC<VideoCallProps> = ({
-                                               userId,
-                                               targetUserId,
-                                               userName,
-                                               senderName,
-                                               senderAvatar
-                                             }) => {
+  userId,
+  targetUserId,
+  userName,
+  senderName,
+  senderAvatar,
+  display
+}) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [, setRemoteStream] = useState<MediaStream | null>(null)
   const [start, setStart] = useState<boolean>(false)
@@ -39,7 +41,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
   const [muteVideo, setMuteVideo] = useState<boolean>(false)
   const [muteAudio, setMuteAudio] = useState<boolean>(false)
   // @ts-ignore
-  const dataConnectionRef = useRef<Peer.DataConnection | null>(null);
+  const dataConnectionRef = useRef<Peer.DataConnection | null>(null)
 
   useEffect(() => {
     initPeer()
@@ -51,7 +53,6 @@ const VideoCall: React.FC<VideoCallProps> = ({
   }, [userId])
 
   const initPeer = () => {
-    // Khởi tạo Peer với ID là userId
     peerRef.current = new Peer(userId, {
       config: {
         iceServers: [
@@ -99,19 +100,18 @@ const VideoCall: React.FC<VideoCallProps> = ({
     })
 
     peerRef.current.on('connection', (conn) => {
-      dataConnectionRef.current = conn;
+      dataConnectionRef.current = conn
 
       // @ts-ignore
       conn.on('data', (data: { type: string }) => {
         if (data.type === 'end-call') {
-          clearVideoCall();
+          clearVideoCall()
         }
-      });
-    });
+      })
+    })
 
     peerRef.current.on('error', (err) => {
       console.error('Peer error:', err)
-      toast.error('Connection error: ' + err.type)
     })
   }
 
@@ -146,7 +146,7 @@ const VideoCall: React.FC<VideoCallProps> = ({
         callerAvatar: senderAvatar
       }
 
-      const call = peerRef.current.call(targetUserId, stream,{ metadata })
+      const call = peerRef.current.call(targetUserId, stream, { metadata })
       currentCallRef.current = call
 
       call.on('stream', (remoteStream) => {
@@ -158,16 +158,15 @@ const VideoCall: React.FC<VideoCallProps> = ({
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remoteStream
         }
-
       })
       if (peerRef.current) {
-        const conn = peerRef.current.connect(targetUserId);
-        dataConnectionRef.current = conn;
+        const conn = peerRef.current.connect(targetUserId)
+        dataConnectionRef.current = conn
 
         // @ts-ignore
         conn.on('data', (data: { type: string }) => {
           if (data.type === 'end-call') {
-            clearVideoCall();
+            clearVideoCall()
           }
         })
       }
@@ -180,7 +179,6 @@ const VideoCall: React.FC<VideoCallProps> = ({
 
   const acceptCall = async () => {
     setStart(true)
-
 
     try {
       const stream = await initLocalStream()
@@ -199,16 +197,15 @@ const VideoCall: React.FC<VideoCallProps> = ({
 
   const stopCall = async (): Promise<void> => {
     if (dataConnectionRef.current && dataConnectionRef.current.open) {
-      dataConnectionRef.current.send({ type: 'end-call' });
+      dataConnectionRef.current.send({ type: 'end-call' })
     }
     if (currentCallRef.current) {
       currentCallRef.current.close()
     }
     if (dataConnectionRef.current) {
-      dataConnectionRef.current.close();
+      dataConnectionRef.current.close()
     }
     clearVideoCall()
-
   }
 
   const initiateCall = () => {
@@ -257,13 +254,12 @@ const VideoCall: React.FC<VideoCallProps> = ({
     }
   }
 
-  // JSX phần return giữ nguyên như cũ
   return (
-    <div className="flex flex-col">
+    <div className={`flex flex-col `}>
       {!start && !comingCall && (
         <button
           onClick={startCall}
-          className={`flex items-center px-2 py-2 w-fit text-white rounded-full disabled:opacity-50 bg-green-500 hover:bg-green-600`}
+          className={`flex ${!display && 'hidden'} items-center px-2 py-2 w-fit text-white rounded-full disabled:opacity-50 bg-green-500 hover:bg-green-600`}
         >
           <PhoneIcon className="w-5 h-5 mr-2" />
         </button>

@@ -33,7 +33,6 @@ import Autoplay from 'embla-carousel-autoplay'
 
 import {
   ChatMessage,
-  client,
   connectWebSocket,
   Conversation,
   Participant,
@@ -790,9 +789,9 @@ const Message = () => {
                     senderName={loginUser ? loginUser.userName : ''}
                     senderAvatar={loginUser ? loginUser.avatar : ''}
                     userName={currentRecipient.name}
-                    client={client}
                     userId={currentUserId}
                     targetUserId={currentRecipient && currentRecipient.id}
+                    display={true}
                   />
                 </div>
               ) : (
@@ -879,6 +878,16 @@ const Message = () => {
             <div
               className={`flex-1 overflow-hidden  flex items-center justify-center relative h-full w-full`}
             >
+             <div className={``}>
+               <VideoCall
+                 senderName={loginUser ? loginUser.userName : ''}
+                 senderAvatar={loginUser ? loginUser.avatar : ''}
+                 userName={""}
+                 userId={currentUserId}
+                 targetUserId={""}
+                 display={false}
+               />
+             </div>
               <Carousel
                 plugins={[
                   Autoplay({
